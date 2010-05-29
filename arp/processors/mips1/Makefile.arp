@@ -1,0 +1,36 @@
+# ####################################################
+# MIPS1 Simulator
+# ####################################################
+
+TARGET=mips1-archc2x-branch
+INC_DIR := -I. -I$(ARCHC_PATH)/include/archc -I$(SYSTEMC)/include -I$(TLM_PATH)
+
+SRCS := mips1.cpp  mips1_arch.cpp  mips1_arch_ref.cpp  mips1_isa.cpp mips1_syscall.cpp
+OBJS := $(SRCS:.cpp=.o)
+
+#------------------------------------------------------
+.SILENT:
+#------------------------------------------------------
+.SUFFIXES: .cc .cpp .o
+#-----------------------------------------------------
+lib: all
+	ar r lib$(TARGET).a $(OBJS)
+#------------------------------------------------------
+all: mips1.cpp $(OBJS)
+#------------------------------------------------------
+clean:
+	rm -f $(OBJS) *~ *.o *.a
+#------------------------------------------------------
+distclean: clean
+	if test -f Makefile.archc; then $(MAKE) -f Makefile.archc distclean; fi;
+#------------------------------------------------------
+.cpp.o:
+	$(CC) $(CFLAGS) $(INC_DIR) -c $<
+#------------------------------------------------------
+.cc.o:
+	$(CC) $(CFLAGS) $(INC_DIR) -c $<
+#------------------------------------------------------
+mips1.cpp:
+	echo --- No simulator found, using acsim to generate one.
+	$(ARCHC_PATH)/bin/acsim mips1.ac -abi -dy
+	$(MAKE) all

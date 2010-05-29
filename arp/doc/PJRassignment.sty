@@ -1,0 +1,63 @@
+% PJRassignment.sty by Pedro de Rezende
+% To be used with LaTeX.
+%
+\typeout{Document Style Option `PJRassignment' -- Released 21 June
+2002}
+
+\oddsidemargin  -4pt
+\evensidemargin -4pt
+\marginparwidth 36pt
+\topmargin  -32pt
+\textheight 8.5in
+\textwidth  6.5in
+\parindent=0pt
+\tolerance=5000 
+\pretolerance=2000 
+\hbadness=2000 
+\hfuzz=2pt
+
+\pagestyle{myheadings}
+
+\def\Ord#1{#1\hbox{$^{\d{\small o}}$}}   % \Ord{1}  dá 1o.
+\def\Orda#1{#1\hbox{$^{\d{\small a}}$}}  % \Orda{3} dá 3a.
+
+\def\Department#1{\def\Dep@rtment{{\normalsize\sf #1}}}
+\def\University#1{\def\Univ@rsity{{\normalsize\sf #1}}}
+\def\Title#1{\def\Titl@{#1}}
+\def\CourseNumber#1{\def\C@urseNumber{#1}}
+\def\CourseName#1{\def\C@urseName{#1}}
+\def\Instructor#1{\def\Instruct@r{#1}}
+\def\Semester#1{\def\Sem@ster{#1}}
+\def\Due#1{\def\Du@{#1}}
+
+\def\c@urseinfo#1{\ifx\C@urseNumber\ReLaX\else\C@urseNumber
+                \ifx\C@urseName\ReLaX\else --- \C@urseName\fi#1\fi
+                \ifx\C@urseNumber\ReLaX\ifx\C@urseName\ReLaX\else
+                     \C@urseName#1\fi\fi}
+
+\def\Topmatter{{\large\sf\noindent
+            \ifx\Dep@rtment\ReLaX\else\Dep@rtment\hfill\fi
+            \ifx\Univ@rsity\ReLaX\else\Univ@rsity\fi}
+  \ifx\Dep@rtment\ReLaX
+    \ifx\Univ@rsity\ReLaX
+    \else\hrule\vspace{1pt}\hrule\hrule\vspace{1pt}\hrule\vspace{2ex}
+    \fi
+  \else\hrule\vspace{1pt}\hrule\hrule\vspace{1pt}\hrule\vspace{2ex}
+  \fi
+  \begin{center}
+     {\Large\bf\ifx\Titl@\ReLaX\else\Titl@\\\fi}
+     {\large \c@urseinfo{\\}}
+     {\large \ifx\Instruct@r\ReLaX\else\Instruct@r\\\fi}
+     {\ifx\Sem@ster\ReLaX\else\Sem@ster\\\fi
+      \ifx\Du@\ReLaX\else\Du@\fi}
+  \end{center}
+  %\vspace{1ex}
+  \thispagestyle{plain}
+  \markboth{\c@urseinfo{\hfil}\ifx\Titl@\ReLaX\else\Titl@\fi}%
+           {\c@urseinfo{\hfil}\ifx\Titl@\ReLaX\else\Titl@\fi}
+}
+
+\newenvironment{Questions}{\begin{enumerate}\def\question{\item}}%
+{\end{enumerate}}
+
+\long\def\instructions#1{\question [] {#1}}

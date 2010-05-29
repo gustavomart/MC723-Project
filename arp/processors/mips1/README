@@ -1,0 +1,89 @@
+This is the MIPS-I ArchC 2.0-beta functional model.
+
+This model has the system call emulation functions implemented,
+so it is a good idea to turn on the ABI option.
+
+To use acsim, the interpreted simulator:
+
+    acsim mips1.ac -abi                 (create the simulator)
+    make -f Makefile.archc              (compile)
+    mips1.x --load=<file-path> [args]   (run an application)
+
+The [args] are optional arguments for the application.
+
+There are two formats recognized for application <file-path>:
+- ELF binary matching ArchC specifications
+- hexadecimal text file for ArchC
+
+
+To generate binary utilities use:
+
+    acbingen.sh -i<abs-install-path> -a<arch-name> mips1.ac
+
+This will generate the tools source files using the architecture
+name <arch-name> (if omitted, mips1 is used), copy them to the
+binutils source tree, build and install them into the directory
+<abs-install-path> (which -must- be an absolute path).
+Use "acbingen.sh -h" to get information about the command-line
+options available.
+
+
+For more information visit http://www.archc.org
+
+
+CHANGELOG:
+==========
+
+Version 0.7.8:
+- Added binary utilities support files
+- ArchC 2.0 compliant
+
+
+Version 0.7.7-archc2.0beta3:
+- Removed delayed assignements by creating the npc register
+- Created lo and hi registers and removed them from RB[32] and RB[33]
+
+
+Version 0.7.6-archc2.0beta3:
+
+- Added license headers
+- Changed the assembly information for 'break' instruction
+
+
+Version 0.7.5-archc2.0beta1:
+
+- Model compliant with ArchC 2.0beta1
+
+
+Version 0.7.5:
+
+- Added 'bgtu' pseudo-insn
+- Added alternative assembly syntaxes to the lwl and lwr instructions
+- Fixed the operand encoding of the nop 'instruction'
+
+
+Version 0.7.4:
+
+- Included assembly language syntax information
+
+
+Version 0.7.3:
+
+- Use ArchC support for debug messages: ac_debug_model.H
+- Use operator[] syntax to read register banks, which is faster
+
+
+Version 0.7.2:
+
+- Included optimization instruction methods for compiled simulation
+- Separate nop instruction from sll to optimize simulation
+
+
+Version 0.7.1:
+
+- Included file for GDB integration
+
+
+Version 0.7.0:
+
+- Model passed selected Mediabench and Mibench applications

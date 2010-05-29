@@ -1,0 +1,36 @@
+What do you need?
+-------------------------------------------------------------------------------
+- SystemC 2.1 (tested with v1)
+- TLM library (tested with 1.0)
+- ArchC 2.0 (tested with SVN revision 175)
+- Mips cross-compiler (optional*)
+
+* binary release included
+
+You can get SystemC and TLM at http://www.systemc.org/ and others at
+http://www.archc.org.
+
+Running ARP
+-------------------------------------------------------------------------------
+Install SystemC, TLM and ArchC.
+Note: You must compile ArchC with TLM support (--with-tlm passed to configure)
+
+Untar ARP minimal, edit Makefile.arp and change the variables to point your
+install path correctly. Download and untar an ARP example from the ArchC site.
+
+$tar xzmf arp_minimal-beta2.tgz
+$./arp --unpack dual_mips.01.arppack
+$vi Makefile
+
+PLATFORM := dual_mips.01
+SYSTEMC :=  /home/user/systemc-2.1.v1
+ARCHC_PATH := /home/user/archc
+TLM_PATH := /home/user/TLM-2005-04-08/tlm
+
+$ make run
+
+By default, the run target will take pre compiled binaries from software folder.
+To compile the binaries see documentation inside sw subdirectories.
+
+More information can be found in doc folder. To generate the documentation, just
+execute make -f Makefile.arp inside any doc folder (you will need pdflatex).

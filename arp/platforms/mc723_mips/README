@@ -1,0 +1,29 @@
+README
+-------------------------------------------------------------------------------
+This is a beta release distributed WITHOUT WARRANTY OF ANY KIND, either express
+or implied.
+
+This is ARP hello world example. It consists of a mips1 processor simulator tied
+to a memory by ArchC 2.0 TLM port. No channels, buses or interconnection
+structure were used. The software is a simple loop printf to ensure that
+processor is running. The main purpose is to use it as a first introduction to
+ArchC and ARP at undergraduate laboratory classes.
+
+Run this example:
+- Install ARP
+  - See toplevel README for notes on system requirements
+- Unpack the platform package (probably done :)
+  $./arp --unpack helloworld_mips.01.arp.pack
+- Edit toplevel Makefile
+  - Change the environment variables to correctly point ARCHC, SYSTEMC and TLM
+  - Change PLATFORM to helloworld_mips.01
+- Run example
+  $make run
+  
+If you don't have mips cross-compiler, you can still run the example by running
+make run-bin.
+
+
+Changelog
+-----------------------------------------------------------------------------
+2006.05.08 - First beta released
