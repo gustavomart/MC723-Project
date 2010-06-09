@@ -3,17 +3,17 @@
 # ARP main Makefile
 # ####################################################
 
-# Variable that points to ArchC installation path
-PLATFORM := dual_mips
+# Name of the platform
+PLATFORM := fft_mips
 
 # Variable that points to SystemC installation path
-export SYSTEMC :=  /home/gustavomart/mc723/systemc
+export SYSTEMC :=  /home/$(USER)/mc723/systemc
 
 # Variable that points to TLM installation path
-export TLM_PATH := /home/gustavomart/mc723/tlm
+export TLM_PATH := /home/$(USER)/mc723/tlm
 
 # Variable that points to ArchC installation path
-export ARCHC_PATH = /home/gustavomart/mc723/archc
+export ARCHC_PATH = /home/$(USER)/mc723/archc
 
 export PATH:=/l/archc/compilers/bin:$(PATH)
 
