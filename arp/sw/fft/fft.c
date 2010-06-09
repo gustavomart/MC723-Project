@@ -372,7 +372,7 @@ int main(int argc, char *argv[])
 
   // mc723 - verifica se deve continuar execução
   AcquireLocalLock(&lock1);
-  if (continue_program)
+  if (! continue_program)
   {
       ReleaseLocalLock(&lock1);
       exit(0);
@@ -383,8 +383,7 @@ int main(int argc, char *argv[])
   }
 
   /* fire off P processes */
-	SlaveStart();
-
+  SlaveStart();
 
   // fft - barreira para fim do algoritmo
   AcquireLocalLock(&lock1);
