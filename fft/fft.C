@@ -714,43 +714,6 @@ void Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst, lon
   long n1p;
   long row_count;
 
-
-long P = DEFAULT_P;
-long M = DEFAULT_M;
-long N;                  /* N = 2^M                                */
-long rootN;              /* rootN = N^1/2                          */
-double *x;              /* x is the original time-domain data     */
-double *trans;          /* trans is used as scratch space         */
-double *umain;          /* umain is roots of unity for 1D FFTs    */
-double *umain2;         /* umain2 is entire roots of unity matrix */
-long test_result = 0;
-long doprint = 0;
-long dostats = 0;
-long transtime = 0;
-long transtime2 = 0;
-long avgtranstime = 0;
-long avgcomptime = 0;
-unsigned long transstart = 0;
-unsigned long transend = 0;
-long maxtotal=0;
-long mintotal=0;
-double maxfrac=0;
-double minfrac=0;
-double avgfractime=0;
-long orig_num_lines = NUM_CACHE_LINES;     /* number of cache lines */
-long num_cache_lines = NUM_CACHE_LINES;    /* number of cache lines */
-long log2_line_size = LOG2_LINE_SIZE;
-long line_size;
-long rowsperproc;
-double ck1;
-double ck3;                        /* checksums for testing answer */
-long pad_length;
-
-
-
-
-
-
   blksize = MyLast-MyFirst;
   numblks = (2*blksize)/num_cache_lines;
   if (numblks * num_cache_lines != 2 * blksize) {
