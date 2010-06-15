@@ -54,16 +54,16 @@
 #define AcquireGlobalLock while(*g_lock)
 #define ReleaseGlobalLock *g_lock=0
 
-volatile int *g_lock = (int*) GLOBAL_LOCK;
-volatile int lock1 = 0;
-volatile int proc=-1;
-
 typedef volatile int barrier_t;
 typedef volatile int lock_t;
 
+lock_t *g_lock = (int*) GLOBAL_LOCK;
+lock_t lock1 = 0;
+volatile int proc=0;
+
 volatile int P = 4;
 
-void inline AcquireLocalLock(volatile int *lock)
+void inline AcquireLocalLock(lock_t *lock)
 {
   int i;
   AcquireGlobalLock;
@@ -77,15 +77,35 @@ void inline AcquireLocalLock(volatile int *lock)
   ReleaseGlobalLock;
 }
 
-void inline ReleaseLocalLock(volatile int *lock)
+void inline ReleaseLocalLock(lock_t *lock)
 {
   AcquireGlobalLock;
-  *lock=0;
+    *lock=0;
   ReleaseGlobalLock;
 }
 
+/* FIXME: passar uma meta... Tambem fazer um barrier_t novo para cada barreira */
+void inline Barrier(barrier_t *barrier, lock_t *lock)
+{
+  int i;
+
+  // fft - barreira para fim do algoritmo
+  AcquireLocalLock(lock);
+    *barrier += 1;
+  ReleaseLocalLock(lock);
+  // fft - verifica condição da barreira
+  AcquireLocalLock(lock);
+    while (*barrier != P)
+    {
+      ReleaseLocalLock(lock);
+        for(i=0; i<100; i++);
+      AcquireLocalLock(lock);
+    }
+  ReleaseLocalLock(lock);
+}
+
 // mc723
-lock_t idlock
+lock_t idlock = 0;
 barrier_t start_barrier=0;
 barrier_t finish_barrier=0;
 
@@ -148,7 +168,7 @@ double ck1;
 double ck3;                        /* checksums for testing answer */
 long pad_length;
 
-void SlaveStart(void);
+void SlaveStart(long MyNum);
 double TouchArray(double *x, double *scratch, double *u, double *upriv, long MyFirst, long MyLast);
 double CheckSum(double *x);
 void InitX(double *x);
@@ -180,11 +200,18 @@ int main(int argc, char *argv[])
   long pages;
   unsigned long start;
 
-  /* Descobre o seu ID */
+  /* MC723 - Precisa descobrir ID e enviar para função SlaveStart */
+  long MyNum;
   AcquireLocalLock(&lock1);
-  proc++;
-  int proc_id = proc;
+    MyNum = proc++;
+    /* Se é o primeiro cria o Global */
+    if (MyNum == 0)
+    {
+      Global = (struct GlobalMemory *) valloc(sizeof(struct GlobalMemory));;
+    }
+    Global->id++;
   ReleaseLocalLock(&lock1);
+  /* Fim MC723 */
 
   {
 	  struct timeval	FullTime;
@@ -193,20 +220,10 @@ int main(int argc, char *argv[])
   };
 
   /* Faz primeira parte apenas para o primeiro processador */
-  if (proc_id == 0)
+  if (MyNum == 0)
   {
     while ((c = getopt(argc, argv, "p:m:n:l:stoh")) != -1) {
       switch(c) {
-        case 'p': P = atoi(optarg); 
-                  if (P < 1) {
-                    printerr("P must be >= 1\n");
-                    exit(-1);
-                  }
-                  if (log_2(P) == -1) {
-                    printerr("P must be a power of 2\n");
-                    exit(-1);
-                  }
-	          break;  
         case 'm': M = atoi(optarg); 
                   m1 = M/2;
                   if (2*m1 != M) {
@@ -236,7 +253,6 @@ int main(int argc, char *argv[])
         case 'h': printf("Usage: FFT <options>\n\n");
                   printf("options:\n");
                   printf("  -mM : M = even integer; 2**M total complex data points transformed.\n");
-                  printf("  -pP : P = number of processors; Must be a power of 2.\n");
                   printf("  -nN : N = number of cache lines.\n");
                   printf("  -lL : L = Log base 2 of cache line length in bytes.\n");
                   printf("  -s  : Print individual processor timing statistics.\n");
@@ -245,8 +261,8 @@ int main(int argc, char *argv[])
                   printf("        results from performing the FFT and inverse FFT.\n");
                   printf("  -o  : Print out complex data points.\n");
                   printf("  -h  : Print out command line options.\n\n");
-                  printf("Default: FFT -m%1d -p%1d -n%1d -l%1d\n",
-                         DEFAULT_M,DEFAULT_P,NUM_CACHE_LINES,LOG2_LINE_SIZE);
+                  printf("Default: FFT -m%1d -n%1d -l%1d\n",
+                         DEFAULT_M,NUM_CACHE_LINES,LOG2_LINE_SIZE);
 	          break;
       }
     }
@@ -290,7 +306,6 @@ int main(int argc, char *argv[])
       }
     }
 
-    Global = (struct GlobalMemory *) valloc(sizeof(struct GlobalMemory));;
     x = (double *) valloc(2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);;
     trans = (double *) valloc(2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);;
     umain = (double *) valloc(2*rootN*sizeof(double));;  
@@ -346,8 +361,6 @@ int main(int argc, char *argv[])
     InitU(N,umain);               /* initialize u arrays*/
     InitU2(N,umain2,rootN);
 
-    Global->id = 0;
-
     // mc723
     AcquireLocalLock(&lock1);
     continue_program=1;
@@ -357,51 +370,23 @@ int main(int argc, char *argv[])
   }
 
   // fft - barreira para inicio do algoritmo
-  AcquireLocalLock(&lock1);
-  start_barrier += 1;
-  ReleaseLocalLock(&lock1);
-  // fft - verifica condição da barreira
-  AcquireLocalLock(&lock1);
-  while (start_barrier != P)
-  {
-    ReleaseLocalLock(&lock1);
-    for(i=0; i<100; i++);
-    AcquireLocalLock(&lock1);
-  }
-  ReleaseLocalLock(&lock1);
+  Barrier(&start_barrier, &lock1);
 
   // mc723 - verifica se deve continuar execução
-  AcquireLocalLock(&lock1);
   if (! continue_program)
   {
-      ReleaseLocalLock(&lock1);
       exit(0);
-  }
-  else
-  {
-    ReleaseLocalLock(&lock1);
   }
 
   /* fire off P processes */
-  SlaveStart();
+  /* MC723 - Passa MyNum que indica o numero do processador */
+  SlaveStart(MyNum);
 
   // fft - barreira para fim do algoritmo
-  AcquireLocalLock(&lock1);
-  finish_barrier += 1;
-  ReleaseLocalLock(&lock1);
-  // fft - verifica condição da barreira
-  AcquireLocalLock(&lock1);
-  while (finish_barrier != P)
-  {
-    ReleaseLocalLock(&lock1);
-    for(i=0; i<100; i++);
-    AcquireLocalLock(&lock1);
-  }
-  ReleaseLocalLock(&lock1);
-
+  Barrier(&finish_barrier, &lock1);
 
   // fft - proc0 imprime resultados finais
-  if (proc_id == 0)
+  if (MyNum == 0)
   {
 
       if (doprint) {
@@ -499,33 +484,16 @@ int main(int argc, char *argv[])
   exit(0);
 }
 
-
-void SlaveStart()
+/* MC723 - Passa MyNum como parametro porque é descoberto no main() */
+void SlaveStart(long MyNum)
 {
   long i;
-  long MyNum;
   double *upriv;
   long initdone; 
   long finish; 
   long l_transtime=0;
   long MyFirst; 
   long MyLast;
-
-  {pthread_mutex_lock(&(Global->idlock));};
-    MyNum = Global->id;
-    Global->id++;
-  {pthread_mutex_unlock(&(Global->idlock));}; 
-
-  {;};
-
-/* POSSIBLE ENHANCEMENT:  Here is where one might pin processes to
-   processors to avoid migration */
-
-  {
-#line 440
-	pthread_barrier_wait(&(Global->start));
-#line 440
-};
 
   upriv = (double *) malloc(2*(rootN-1)*sizeof(double));  
   if (upriv == NULL) {
@@ -541,14 +509,9 @@ void SlaveStart()
 
   TouchArray(x, trans, umain2, upriv, MyFirst, MyLast);
 
-  {
-#line 456
-	pthread_barrier_wait(&(Global->start));
-#line 456
-};
-
-/* POSSIBLE ENHANCEMENT:  Here is where one might reset the
-   statistics that one is measuring about the parallel execution */
+  // fft - start barrier
+  Barrier(&start_barrier, &lock1);
+  // fim - fft
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -595,7 +558,7 @@ void SlaveStart()
   }
 }
 
-
+/* Usar FPU */
 double TouchArray(double *x, double *scratch, double *u, double *upriv, long MyFirst, long MyLast)
 {
   long i,j,k;
@@ -712,11 +675,9 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   m1 = M/2;
   n1 = 1<<m1;
 
-  {
-#line 603
-	pthread_barrier_wait(&(Global->start));
-#line 603
-};
+  /* mc723 - barreira de inicio do fft1d */
+  Barrier(&start_barrier, &lock1);
+  /* fim-mc723 */
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -756,11 +717,9 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
     TwiddleOneCol(direction, n1, j, umain2, &scratch[2*j*(n1+pad_length)], pad_length);
   }  
 
-  {
-#line 623
-	pthread_barrier_wait(&(Global->start));
-#line 623
-};
+  /* mc723 - barreira do meio do fft1d */
+  Barrier(&start_barrier, &lock1);
+  /* fim-mc723 */
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -800,11 +759,9 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
       Scale(n1, N, &x[2*j*(n1+pad_length)]);
   }
 
-  {
-#line 643
-	pthread_barrier_wait(&(Global->start));
-#line 643
-};
+  /* mc723 - barreira do meio do fft1d */
+  Barrier(&start_barrier, &lock1);
+  /* fim-mc723 */
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -838,11 +795,9 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
     *l_transtime += (clocktime2-clocktime1);
   }
 
-  {
-#line 657
-	pthread_barrier_wait(&(Global->start));
-#line 657
-};
+  /* mc723 - barreira do quase fim do fft1d */
+  Barrier(&start_barrier, &lock1);
+  /* fim-mc723 */
 
   /* copy columns from scratch to x */
   if ((test_result) || (doprint)) {  
@@ -851,11 +806,10 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
     }  
   }  
 
-  {
-#line 666
-	pthread_barrier_wait(&(Global->start));
-#line 666
-};
+  /* mc723 - barreira do fim do fft1d */
+  Barrier(&start_barrier, &lock1);
+  /* fim-mc723 */
+
 }
 
 
