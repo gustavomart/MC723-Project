@@ -84,7 +84,6 @@ void inline ReleaseLocalLock(lock_t *lock)
   ReleaseGlobalLock;
 }
 
-/* FIXME: passar uma meta... Tambem fazer um barrier_t novo para cada barreira */
 void inline Barrier(barrier_t *barrier, lock_t *lock)
 {
   int i;
@@ -108,6 +107,9 @@ void inline Barrier(barrier_t *barrier, lock_t *lock)
 lock_t idlock = 0;
 barrier_t start_barrier=0;
 barrier_t finish_barrier=0;
+barrier_t slave_barrier=0;
+barrier_t fft_barrier1[5] = {0, 0, 0, 0, 0};
+barrier_t fft_barrier2[5] = {0, 0, 0, 0, 0};
 
 /*************************************************************************/
 /*		              End of ARP Macros				 */
@@ -145,9 +147,9 @@ double *x;              /* x is the original time-domain data     */
 double *trans;          /* trans is used as scratch space         */
 double *umain;          /* umain is roots of unity for 1D FFTs    */
 double *umain2;         /* umain2 is entire roots of unity matrix */
-long test_result = 0;
-long doprint = 0;
-long dostats = 0;
+long test_result = 1;
+long doprint = 1;
+long dostats = 1;
 long transtime = 0;
 long transtime2 = 0;
 long avgtranstime = 0;
@@ -176,7 +178,7 @@ void InitU(long N, double *u);
 void InitU2(long N, double *u, long n1);
 long BitReverse(long M, long k);
 void FFT1D(long direction, long M, long N, double *x, double *scratch, double *upriv, double *umain2,
-	   long MyNum, long *l_transtime, long MyFirst, long MyLast, long pad_length, long test_result, long dostats);
+	   long MyNum, long *l_transtime, long MyFirst, long MyLast, long pad_length, long test_result, long dostats, barrier_t *barrier);
 void TwiddleOneCol(long direction, long n1, long j, double *u, double *x, long pad_length);
 void Scale(long n1, long N, double *x);
 void Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst, long MyLast, long pad_length);
@@ -208,8 +210,10 @@ int main(int argc, char *argv[])
     if (MyNum == 0)
     {
       Global = (struct GlobalMemory *) valloc(sizeof(struct GlobalMemory));;
+      printf("Criou <Global>\n");
     }
     Global->id++;
+    printf("MyId = %d\n", MyNum);
   ReleaseLocalLock(&lock1);
   /* Fim MC723 */
 
@@ -378,9 +382,13 @@ int main(int argc, char *argv[])
       exit(0);
   }
 
+  printf("Vai entrar no SlaveStart\n");
+
   /* fire off P processes */
   /* MC723 - Passa MyNum que indica o numero do processador */
   SlaveStart(MyNum);
+
+  printf("Saiu do SlaveStart\n");
 
   // fft - barreira para fim do algoritmo
   Barrier(&finish_barrier, &lock1);
@@ -495,6 +503,8 @@ void SlaveStart(long MyNum)
   long MyFirst; 
   long MyLast;
 
+  printf("Entrou no slavestart\n");
+
   upriv = (double *) malloc(2*(rootN-1)*sizeof(double));  
   if (upriv == NULL) {
     fprintf(stderr,"Proc %ld could not malloc memory for upriv\n",MyNum);
@@ -510,7 +520,7 @@ void SlaveStart(long MyNum)
   TouchArray(x, trans, umain2, upriv, MyFirst, MyLast);
 
   // fft - start barrier
-  Barrier(&start_barrier, &lock1);
+  Barrier(&slave_barrier, &lock1);
   // fim - fft
 
   if ((MyNum == 0) || (dostats)) {
@@ -529,13 +539,17 @@ void SlaveStart(long MyNum)
 
   /* perform forward FFT */
   FFT1D(1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
-	MyLast, pad_length, test_result, dostats);
+	MyLast, pad_length, test_result, dostats, fft_barrier1);
+
+  printf("Executou FFT1D\n");
 
   /* perform backward FFT */
   if (test_result) {
     FFT1D(-1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
-	  MyLast, pad_length, test_result, dostats);
+	  MyLast, pad_length, test_result, dostats, fft_barrier2);
   }  
+
+  printf("Executou FFT1D de novo\n");
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -556,6 +570,7 @@ void SlaveStart(long MyNum)
     Global->finishtime = finish;
     Global->initdonetime = initdone;
   }
+  printf("Caiu \n");
 }
 
 /* Usar FPU */
@@ -664,7 +679,8 @@ long BitReverse(long M, long k)
 
 
 void FFT1D(long direction, long M, long N, double *x, double *scratch, double *upriv, double *umain2,
-           long MyNum, long *l_transtime, long MyFirst, long MyLast, long pad_length, long test_result, long dostats)
+           long MyNum, long *l_transtime, long MyFirst, long MyLast, long pad_length, long test_result, long dostats,
+           barrier_t *barrier)
 {
   long j;
   long m1; 
@@ -676,7 +692,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   n1 = 1<<m1;
 
   /* mc723 - barreira de inicio do fft1d */
-  Barrier(&start_barrier, &lock1);
+  Barrier(&barrier[0], &lock1);
   /* fim-mc723 */
 
   if ((MyNum == 0) || (dostats)) {
@@ -718,7 +734,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   }  
 
   /* mc723 - barreira do meio do fft1d */
-  Barrier(&start_barrier, &lock1);
+  Barrier(&barrier[1], &lock1);
   /* fim-mc723 */
 
   if ((MyNum == 0) || (dostats)) {
@@ -760,7 +776,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   }
 
   /* mc723 - barreira do meio do fft1d */
-  Barrier(&start_barrier, &lock1);
+  Barrier(&barrier[2], &lock1);
   /* fim-mc723 */
 
   if ((MyNum == 0) || (dostats)) {
@@ -796,7 +812,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   }
 
   /* mc723 - barreira do quase fim do fft1d */
-  Barrier(&start_barrier, &lock1);
+  Barrier(&barrier[3], &lock1);
   /* fim-mc723 */
 
   /* copy columns from scratch to x */
@@ -807,7 +823,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   }  
 
   /* mc723 - barreira do fim do fft1d */
-  Barrier(&start_barrier, &lock1);
+  Barrier(&barrier[4], &lock1);
   /* fim-mc723 */
 
 }
