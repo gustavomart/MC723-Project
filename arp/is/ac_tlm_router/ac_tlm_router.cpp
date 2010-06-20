@@ -38,23 +38,15 @@ ac_tlm_router::ac_tlm_router( sc_module_name module_name ) :
   target_export2("iport2"),
   target_export3("iport3"),
   target_export4("iport4"),
-  target_export5("iport5"),
-  target_export6("iport6"),
-  target_export7("iport7"),
-  target_export8("iport8"),
   R_port_mem("R_port_mem", 5242880U),
-  R_port_lock("R_port_lock", 32U)
+  R_port_lock("R_port_lock", 32U),
+  R_port_fft1d("R_port_fft1d", 1048576U)
 {
     /// Binds target_export to the router
     target_export1( *this );
     target_export2( *this );
     target_export3( *this );
     target_export4( *this );
-    target_export5( *this );
-    target_export6( *this );
-    target_export7( *this );
-    target_export8( *this );
-
 }
 
 /// Destructor
@@ -67,16 +59,37 @@ ac_tlm_router::~ac_tlm_router() {
 */
 ac_tlm_rsp ac_tlm_router::route( const ac_tlm_req &request )
 {
-  if (request.addr < LOCK_BASE)
+  if (request.addr >= MEM_BASE && request.addr < LOCK_BASE)
   {
     // Route to mem
     return R_port_mem->transport( request );
   }
-  else if (request.addr < MDOUBLE_BASE)
+  else if (request.addr >= LOCK_BASE && request.addr < FPU_BASE)
   {
     // Route to Read&Inc register
     ac_tlm_req req_aux = request;
     req_aux.addr -= LOCK_BASE;
+    return R_port_lock->transport( req_aux );
+  }
+  else if (request.addr >= FPU_BASE && request.addr < FFT1D_BASE)
+  {
+    // Route to FPU peripheric
+    //ac_tlm_req req_aux = request;
+    //req_aux.addr -= FPU_BASE;
+    //return R_port_fpu->transport( req_aux );
+  }
+  else if (request.addr >= FFT1D_BASE && request.addr < TRANSPOSE_BASE)
+  {
+    // Route to FFT1D peripheric
+    ac_tlm_req req_aux = request;
+    req_aux.addr -= FFT1D_BASE;
+    return R_port_fft1d->transport( req_aux );
+  }
+  else if (request.addr >= TRANSPOSE_BASE)
+  {
+    // Route to Read&Inc register
+    ac_tlm_req req_aux = request;
+    req_aux.addr -= TRANSPOSE_BASE;
     return R_port_lock->transport( req_aux );
   }
   
