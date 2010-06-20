@@ -47,7 +47,7 @@
 #include <math.h>
 
 /*************************************************************************/
-/*		              ARP Macros				                                   */
+/*		              ARP Macros				 */
 /*************************************************************************/
 
 #define MEM_BASE 0x000000
@@ -66,7 +66,7 @@ lock_t *g_lock = (int*) LOCK_BASE;
 lock_t lock1 = 0;
 volatile int proc=0;
 
-volatile int P = 4;
+volatile int P = 1;
 
 void inline AcquireLocalLock(lock_t *lock)
 {
@@ -110,8 +110,6 @@ void inline Barrier(barrier_t *barrier, lock_t *lock)
 
 void ARP_FFT1DOnce(long MyNum, long direction, long M, long N, double *u, double *x)
 {
-  int i;
-
   long *arp_mynum = (long*)FFT1D_BASE;
   long *arp_direction = (long*)(FFT1D_BASE+4);
   long *arp_M = (long*)(FFT1D_BASE+8);
@@ -131,10 +129,10 @@ void ARP_FFT1DOnce(long MyNum, long direction, long M, long N, double *u, double
   *vet_u = u;
   *vet_x = x;
 
-  ReleaseLocalLock(&lock1);
-
   // calcula o resultado
   int foo = *calcula_FFT1DOnce;
+
+  ReleaseLocalLock(&lock1);
 }
 
 // mc723
@@ -183,7 +181,7 @@ double *umain;          /* umain is roots of unity for 1D FFTs    */
 double *umain2;         /* umain2 is entire roots of unity matrix */
 long test_result = 1;
 long doprint = 1;
-long dostats = 0;
+long dostats = 1;
 long transtime = 0;
 long transtime2 = 0;
 long avgtranstime = 0;
@@ -250,6 +248,8 @@ int main(int argc, char *argv[])
     printf("MyId = %d\n", MyNum);
   ReleaseLocalLock(&lock1);
   /* Fim MC723 */
+
+if (MyNum > 0) exit(0);
 
   {
 	  struct timeval	FullTime;
@@ -345,10 +345,8 @@ int main(int argc, char *argv[])
     }
 
     x = (double *) valloc(2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);;
-    printf("size of x, trans, umain = %d\n", 2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);
     trans = (double *) valloc(2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);;
     umain = (double *) valloc(2*rootN*sizeof(double));;  
-    printf("size of umain = %d\n", 2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);
     umain2 = (double *) valloc(2*(N+rootN*pad_length)*sizeof(double)+PAGE_SIZE);;
 
     Global->transtimes = (long *) valloc(P*sizeof(long));;  
@@ -539,8 +537,9 @@ void SlaveStart(long MyNum)
   long MyFirst; 
   long MyLast;
 
-  upriv = (double *) malloc(2*(rootN-1)*sizeof(double));  
+  printf("Entrou no slavestart\n");
 
+  upriv = (double *) malloc(2*(rootN-1)*sizeof(double));  
   if (upriv == NULL) {
     fprintf(stderr,"Proc %ld could not malloc memory for upriv\n",MyNum);
     exit(-1);
@@ -576,6 +575,8 @@ void SlaveStart(long MyNum)
   FFT1D(1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
 	MyLast, pad_length, test_result, dostats, fft_barrier1);
 
+  printf("Executou FFT1D\n");
+
   /* perform backward FFT */
   if (test_result) {
     FFT1D(-1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
@@ -603,7 +604,7 @@ void SlaveStart(long MyNum)
     Global->finishtime = finish;
     Global->initdonetime = initdone;
   }
-
+  printf("Caiu \n");
 }
 
 /* Usar FPU */
@@ -762,8 +763,8 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
 
   /* do n1 1D FFTs on columns */
   for (j=MyFirst; j<MyLast; j++) {
-    //ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
-    FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
+    //FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
+    ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
     TwiddleOneCol(direction, n1, j, umain2, &scratch[2*j*(n1+pad_length)], pad_length);
   }  
 
@@ -804,8 +805,8 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
 
   /* do n1 1D FFTs on columns again */
   for (j=MyFirst; j<MyLast; j++) {
-    //ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
-    FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
+    //FFT1DOnce(direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
+    ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
     if (direction == -1)
       Scale(n1, N, &x[2*j*(n1+pad_length)]);
   }
@@ -1073,24 +1074,4 @@ void printerr(char *s)
   fprintf(stderr,"ERROR: %s\n",s);
 }
 
-
-long log_2(long number)
-{
-  long cumulative = 1, out = 0, done = 0;
-
-  while ((cumulative < number) && (!done) && (out < 50)) {
-    if (cumulative == number) {
-      done = 1;
-    } else {
-      cumulative = cumulative * 2;
-      out ++;
-    }
-  }
-
-  if (cumulative == number) {
-    return(out);
-  } else {
-    return(-1);
-  }
-}
 

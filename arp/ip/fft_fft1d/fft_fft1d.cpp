@@ -65,10 +65,10 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
       *((uint32_t *) &zN[MyNum]) = *((uint32_t *) &d);
       break;
     case 16:
-      *((uint32_t *) &vet_u[MyNum]) = *((uint32_t *) &d);
+      *((double *) &vet_u[MyNum]) = *((double *) &d);
       break;
     case 20:
-      *((uint32_t *) &vet_x[MyNum]) = *((uint32_t *) &d);
+      *((double* *) &vet_x[MyNum]) = *((double* *) &d);
       break;
   }
 }
@@ -80,18 +80,11 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
 */
 ac_tlm_rsp_status fft_fft1d::read( const uint32_t &a , uint32_t &d )
 {
-  printf("FFT1DOnce: %d %d %d %d %p %p\n", a/4, zdirection[a/4], zM[a/4], zN[a/4], vet_u[a/4], vet_x[a/4]);
+  //printf("FFT1DOnce: %d %d %d %d %p %p\n", a/4, zdirection[a/4], zM[a/4], zN[a/4], vet_u[a/4], vet_x[a/4]);
 
   FFT1DOnce(zdirection[a/4], zM[a/4], zN[a/4], vet_u[a/4], vet_x[a/4]);
 
   return SUCCESS;
-}
-
-void fft_fft1d::swap_endian(uint32_t *a, uint32_t *b)
-{
-  uint32_t swap = *a;
-  *a = *b;
-  *b = swap;
 }
 
 double fft_fft1d::read_double( double* a )
@@ -99,14 +92,15 @@ double fft_fft1d::read_double( double* a )
   ac_tlm_req request;
   request.type = READ;
   uint32_t value[2];
+  uint32_t addr = (uint32_t)a;
 
   // le primeira parte
-  request.addr = (uint32_t)a;
+  request.addr = addr;
   ac_tlm_rsp first_part = R_port_mem->transport( request );
   value[1] = first_part.data;
 
   // le segunda parte
-  request.addr = (uint32_t)a+4;
+  request.addr = addr+4;
   ac_tlm_rsp second_part = R_port_mem->transport( request );
   value[0] = second_part.data;
 
@@ -117,15 +111,16 @@ void fft_fft1d::write_double( double* a, double d )
 {
   ac_tlm_req request;
   request.type = WRITE;
+  uint32_t addr = (uint32_t)a;
   uint32_t *value = (uint32_t*)&d;
 
   // escreve primeira parte
-  request.addr = (uint32_t)a;
+  request.addr = addr;
   request.data = value[1];
   R_port_mem->transport( request );
 
   // escreve segunda parte
-  request.addr = (uint32_t)a+4;
+  request.addr = addr+4;
   request.data = value[0];
   R_port_mem->transport( request );
 }
@@ -148,7 +143,7 @@ long fft_fft1d::BitReverse(long M, long k)
 void fft_fft1d::Reverse(long N, long M, double *x)
 {
   long j, k;
-  double a, b, aux;
+  double a, b;
 
   for (k=0; k<N; k++) {
     j = BitReverse(M, k);
@@ -161,8 +156,8 @@ void fft_fft1d::Reverse(long N, long M, double *x)
 
       a = read_double(x+2*j+1);
       b = read_double(x+2*k+1);
-      write_double(x+(2*j+1), b);
-      write_double(x+(2*k+1), a);
+      write_double(x+2*j+1, b);
+      write_double(x+2*k+1, a);
     }
   }
 }
@@ -189,10 +184,10 @@ void fft_fft1d::FFT1DOnce(long direction, long M, long N, double *u, double *x)
 
   for (q=1; q<=M; q++) {
     L = 1<<q; r = N/L; Lstar = L/2;
-    u1 = (double*)(u+2*(Lstar-1)*8);
+    u1 = (double*)(u+2*(Lstar-1));
     for (k=0; k<r; k++) {
-      x1 = (double*)(x+2*(k*L)*8);
-      x2 = (double*)(x+2*(k*L+Lstar)*8);
+      x1 = (double*)(x+2*(k*L));
+      x2 = (double*)(x+2*(k*L+Lstar));
       for (j=0; j<Lstar; j++) {
 	      omega_r = read_double(u1+2*j); 
         omega_c = direction * read_double(u1+2*j+1);

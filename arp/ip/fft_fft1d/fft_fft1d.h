@@ -62,8 +62,6 @@ public:
 
   ac_tlm_port R_port_mem;
 
-  void swap_double();
-
   /**
    * Implementation of TLM transport method that
    * handle packets of the protocol doing apropriate actions.
@@ -119,7 +117,6 @@ private:
   double* vet_x[4];
   double* vet_u[4];
 
-  void swap_endian(uint32_t *a, uint32_t *b);
   long BitReverse(long M, long k);
   void Reverse(long N, long M, double *x);
   void FFT1DOnce(long direction, long M, long N, double *u, double *x);
