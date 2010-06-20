@@ -185,6 +185,7 @@ void fft_fft1d::FFT1DOnce(long direction, long M, long N, double *u, double *x)
   for (q=1; q<=M; q++) {
     L = 1<<q; r = N/L; Lstar = L/2;
     u1 = (double*)(u+2*(Lstar-1));
+    printf("u1 = %lf\n", (u+2*(Lstar-1)));
     for (k=0; k<r; k++) {
       x1 = (double*)(x+2*(k*L));
       x2 = (double*)(x+2*(k*L+Lstar));
