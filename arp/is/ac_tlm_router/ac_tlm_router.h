@@ -65,6 +65,7 @@ public:
   ac_tlm_port R_port_mem;
   ac_tlm_port R_port_lock;
   ac_tlm_port R_port_fft1d;
+  ac_tlm_port R_port_fpu;
 
   ac_tlm_rsp route( const ac_tlm_req &request );
 

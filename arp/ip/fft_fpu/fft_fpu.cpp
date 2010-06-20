@@ -1,63 +1,29 @@
-/**
- * @file      ac_tlm_mem.cpp
- * @author    Bruno de Carvalho Albertini
- *
- * @author    The ArchC Team
- *            http://www.archc.org/
- *
- *            Computer Systems Laboratory (LSC)
- *            IC-UNICAMP
- *            http://www.lsc.ic.unicamp.br/
- *
- * @version   0.1
- * @date      Sun, 02 Apr 2006 08:07:46 -0200
- *
- * @brief     Implements a ac_tlm memory.
- *
- * @attention Copyright (C) 2002-2005 --- The ArchC Team
- *
- *   This library is free software; you can redistribute it and/or
- *   modify it under the terms of the GNU Lesser General Public
- *   License as published by the Free Software Foundation; either
- *   version 2.1 of the License, or (at your option) any later version.
- *
- *   This library is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *   Lesser General Public License for more details.
- *
- *
- */
-
 //////////////////////////////////////////////////////////////////////////////
 // Standard includes
 // SystemC includes
 // ArchC includes
 
-#include "ac_tlm_mem.h"
+#include "fft_fpu.h"
+#include <math.h>
 
 //////////////////////////////////////////////////////////////////////////////
 
 /// Namespace to isolate memory from ArchC
-using user::ac_tlm_mem;
+using user::fft_fpu;
 
 /// Constructor
-ac_tlm_mem::ac_tlm_mem( sc_module_name module_name , int k ) :
+fft_fpu::fft_fpu( sc_module_name module_name ) :
   sc_module( module_name ),
   target_export("iport")
 {
     /// Binds target_export to the memory
     target_export( *this );
 
-    /// Initialize memory vector
-    memory = new uint8_t[ k ];
-    for(k=k-1;k>0;k--) memory[k]=0;
 }
 
 /// Destructor
-ac_tlm_mem::~ac_tlm_mem() {
+fft_fpu::~fft_fpu() {
 
-  delete [] memory;
 }
 
 /** Internal Write
@@ -66,9 +32,90 @@ ac_tlm_mem::~ac_tlm_mem() {
   * @param d id the data being write
   * @returns A TLM response packet with SUCCESS
 */
-ac_tlm_rsp_status ac_tlm_mem::writem( const uint32_t &a , const uint32_t &d )
+ac_tlm_rsp_status fft_fpu::write( const uint32_t &a , const uint32_t &d )
 {
-  *((uint32_t *) &memory[a]) = *((uint32_t *) &d);
+
+    
+  switch(*((uint32_t *)&a)){
+    
+    //mult
+    case 0:
+      *((uint32_t *)&op1_m[1]) = *((uint32_t *)&d);
+      break;
+    case 4:
+      *((uint32_t *)&op1_m[0]) = *((uint32_t *)&d);
+      break;
+    case 8:
+      *((uint32_t *)&op2_m[1]) = *((uint32_t *)&d);
+      break;
+    case 12:
+      *((uint32_t *)&op2_m[0]) = *((uint32_t *)&d);
+      break;
+    
+    //soma
+    case 24:
+      *((uint32_t *)&op1_s[1]) = *((uint32_t *)&d);
+      break;
+    case 28:
+      *((uint32_t *)&op1_s[0]) = *((uint32_t *)&d);
+      break;
+    case 32:
+      *((uint32_t *)&op2_s[1]) = *((uint32_t *)&d);
+      break;
+    case 36:
+      *((uint32_t *)&op2_s[0]) = *((uint32_t *)&d);
+      break;
+      
+    //sen()
+    case 48:
+      *((uint32_t *)&op_sin[1]) = *((uint32_t *)&d);
+      break;
+    case 52:
+      *((uint32_t *)&op_sin[0]) = *((uint32_t *)&d);
+      break;
+      
+    //cos()
+    case 64:
+      *((uint32_t *)&op_cos[1]) = *((uint32_t *)&d);
+      break;
+    case 68:
+      *((uint32_t *)&op_cos[0]) = *((uint32_t *)&d);
+      break;
+      
+    //div
+    case 80:
+      *((uint32_t *)&op1_d[1]) = *((uint32_t *)&d);
+      break;
+    case 84:
+      *((uint32_t *)&op1_d[0]) = *((uint32_t *)&d);
+      break;
+    case 88:
+      *((uint32_t *)&op2_d[1]) = *((uint32_t *)&d);
+      break;
+    case 92:
+      *((uint32_t *)&op2_d[0]) = *((uint32_t *)&d);
+      break;
+    
+    //sub
+    case 104:
+      *((uint32_t *)&op1_sub[1]) = *((uint32_t *)&d);
+      break;
+    case 108:
+      *((uint32_t *)&op1_sub[0]) = *((uint32_t *)&d);
+      break;
+    case 112:
+      *((uint32_t *)&op2_sub[1]) = *((uint32_t *)&d);
+      break;
+    case 116:
+      *((uint32_t *)&op2_sub[0]) = *((uint32_t *)&d);
+      break;
+      
+
+    default:
+      return ERROR;
+  }
+      
+  
   return SUCCESS;
 }
 
@@ -78,12 +125,87 @@ ac_tlm_rsp_status ac_tlm_mem::writem( const uint32_t &a , const uint32_t &d )
   * @param d id the data that will be read
   * @returns A TLM response packet with SUCCESS and a modified d
 */
-ac_tlm_rsp_status ac_tlm_mem::readm( const uint32_t &a , uint32_t &d )
+ac_tlm_rsp_status fft_fpu::read( const uint32_t &a , uint32_t &d )
 {
-  *((uint32_t *) &d) = *((uint32_t *) &memory[a]);
+  
+  //mult
+  if( (*((const uint32_t *) &a) == 16) || (*((const uint32_t *) &a) == 20)) {
+      
+      //operacao
+      *((double *) &res_m) = (*((double *) &op1_m)) * (*((double*) &op2_m));
+      
+	    if(*((const uint32_t *) &a) == 16)
+    	  *((uint32_t *)&d) = *((uint32_t *)&res_m[1]);
+	
+    	if (*((const uint32_t *) &a) == 20)
+    	  *((uint32_t *)&d) = *((uint32_t *)&res_m[0]);
+  }
+      
+  //soma
+  if( (*((const uint32_t *) &a) == 40) || (*((const uint32_t *) &a) == 44) ){
+      
+      //operacao
+      *((double *) &res_s) = (*((double *) &op1_s)) + (*((double*) &op2_s));
+      
+	  if(*((const uint32_t *) &a) == 40)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_s[1]);
+	
+  	if(*((const uint32_t *) &a) == 44)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_s[0]);
+  }
+     
+  //seno
+  if( (*((const uint32_t *) &a) == 56) || (*((const uint32_t *) &a) == 60) ){
+      
+      //operacao
+      *((double *) &res_sin) = sin((*((double *) &op_sin)));       
+      
+	  if(*((const uint32_t *) &a) == 56)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_sin[1]);
+	
+  	if(*((const uint32_t *) &a) == 60)
+  	  *((uint32_t *)&d) = *((uint32_t *)&res_sin[0]);
+  }
 
+  //cosseno
+  if( (*((const uint32_t *) &a) == 72) || (*((const uint32_t *) &a) == 76) ){
+      
+      //operacao
+      *((double *) &res_cos) = cos( (*((double *) &op_cos)) );  
+      
+	  if(*((const uint32_t *) &a) == 72)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_cos[1]);
+	
+	  if(*((const uint32_t *) &a) == 76)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_cos[0]);
+  }
+
+  //div
+  if( (*((const uint32_t *) &a) == 96) || (*((const uint32_t *) &a) == 100) ){
+      
+      //operacao
+      *((double *) &res_d) = (*((double *) &op1_d)) / (*((double*) &op2_d));
+      
+	  if(*((const uint32_t *) &a) == 96)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_d[1]);
+	
+	  if (*((const uint32_t *) &a) == 100)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_d[0]);
+  }
+
+  //sub
+  if( (*((const uint32_t *) &a) == 120) || (*((const uint32_t *) &a) == 124) ){
+      
+      //operacao
+      *((double *) &res_sub) = ( (*((double *) &op1_sub)) - (*((double*) &op2_sub)) );
+      
+	  if(*((const uint32_t *) &a) == 120)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_sub[1]);
+	
+	  if(*((const uint32_t *) &a) == 124)
+	    *((uint32_t *)&d) = *((uint32_t *)&res_sub[0]);
+  }
+  
   return SUCCESS;
 }
-
-
 

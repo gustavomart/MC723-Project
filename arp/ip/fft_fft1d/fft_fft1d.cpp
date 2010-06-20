@@ -65,10 +65,10 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
       *((uint32_t *) &zN[MyNum]) = *((uint32_t *) &d);
       break;
     case 16:
-      *((double *) &vet_u[MyNum]) = *((double *) &d);
+      *((uint32_t *) &vet_u[MyNum]) = *((uint32_t *) &d);
       break;
     case 20:
-      *((double* *) &vet_x[MyNum]) = *((double* *) &d);
+      *((uint32_t *) &vet_x[MyNum]) = *((uint32_t *) &d);
       break;
   }
 }
@@ -97,12 +97,12 @@ double fft_fft1d::read_double( double* a )
   // le primeira parte
   request.addr = addr;
   ac_tlm_rsp first_part = R_port_mem->transport( request );
-  value[1] = first_part.data;
+  *((uint32_t *)&value[1]) = *((uint32_t *) &first_part.data);
 
   // le segunda parte
   request.addr = addr+4;
   ac_tlm_rsp second_part = R_port_mem->transport( request );
-  value[0] = second_part.data;
+  *((uint32_t *)&value[0]) = *((uint32_t *) &second_part.data);
 
   return *(double*)&value;
 }
@@ -112,16 +112,16 @@ void fft_fft1d::write_double( double* a, double d )
   ac_tlm_req request;
   request.type = WRITE;
   uint32_t addr = (uint32_t)a;
-  uint32_t *value = (uint32_t*)&d;
+  uint32_t *value = (uint32_t *) &d;
 
   // escreve primeira parte
   request.addr = addr;
-  request.data = value[1];
+  *((uint32_t *) &request.data) = *((uint32_t *) &value[1]);
   R_port_mem->transport( request );
 
   // escreve segunda parte
   request.addr = addr+4;
-  request.data = value[0];
+  *((uint32_t *) &request.data) = *((uint32_t *) &value[0]);
   R_port_mem->transport( request );
 }
 
@@ -185,7 +185,6 @@ void fft_fft1d::FFT1DOnce(long direction, long M, long N, double *u, double *x)
   for (q=1; q<=M; q++) {
     L = 1<<q; r = N/L; Lstar = L/2;
     u1 = (double*)(u+2*(Lstar-1));
-    printf("u1 = %lf\n", (u+2*(Lstar-1)));
     for (k=0; k<r; k++) {
       x1 = (double*)(x+2*(k*L));
       x2 = (double*)(x+2*(k*L+Lstar));

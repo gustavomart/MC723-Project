@@ -44,7 +44,6 @@
 /*************************************************************************/
 
 #include <stdio.h>
-#include <math.h>
 
 /*************************************************************************/
 /*		              ARP Macros				 */
@@ -66,7 +65,16 @@ lock_t *g_lock = (int*) LOCK_BASE;
 lock_t lock1 = 0;
 volatile int proc=0;
 
-volatile int P = 1;
+// locks para componentes
+lock_t lock_fft1d = 0;
+lock_t lock_add = 0;
+lock_t lock_sub = 0;
+lock_t lock_mult = 0;
+lock_t lock_div = 0;
+lock_t lock_sin = 0;
+lock_t lock_cos = 0;
+
+volatile int P = 4;
 
 void inline AcquireLocalLock(lock_t *lock)
 {
@@ -106,6 +114,104 @@ void inline Barrier(barrier_t *barrier, lock_t *lock)
       AcquireLocalLock(lock);
     }
   ReleaseLocalLock(lock);
+}
+
+double ARP_mult (double a, double b)
+{
+  AcquireLocalLock(&lock_mult);
+
+  double* addr_a = (double*)(FPU_BASE+0);
+  double* addr_b = (double*)(FPU_BASE+8);
+  double* result = (double*)(FPU_BASE+16);
+
+  *addr_a = a;
+  *addr_b = b;
+  double res = *result;
+
+  ReleaseLocalLock(&lock_mult);
+
+  return res;
+}
+
+double ARP_add (double a, double b)
+{
+  AcquireLocalLock(&lock_add);
+
+  double* addr_a = (double*)(FPU_BASE+24);
+  double* addr_b = (double*)(FPU_BASE+32);
+  double* result = (double*)(FPU_BASE+40);
+
+  *addr_a = a;
+  *addr_b = b;
+  double res = *result;
+
+  ReleaseLocalLock(&lock_add);
+
+  return res;
+}
+
+double ARP_sin (double a)
+{
+  AcquireLocalLock(&lock_sin);
+
+  double* addr_a = (double*)(FPU_BASE+48);
+  double* result = (double*)(FPU_BASE+56);
+
+  *addr_a = a;
+  double res = *result;
+
+  ReleaseLocalLock(&lock_sin);
+
+  return res;
+}
+
+double ARP_cos (double a)
+{
+  AcquireLocalLock(&lock_cos);
+
+  double* addr_a = (double*)(FPU_BASE+64);
+  double* result = (double*)(FPU_BASE+72);
+
+  *addr_a = a;
+  double res = *result;
+
+  ReleaseLocalLock(&lock_cos);
+
+  return res;
+}
+
+double ARP_div (double a, double b)
+{
+  AcquireLocalLock(&lock_div);
+
+  double* addr_a = (double*)(FPU_BASE+80);
+  double* addr_b = (double*)(FPU_BASE+88);
+  double* result = (double*)(FPU_BASE+96);
+
+  *addr_a = a;
+  *addr_b = b;
+  double res = *result;
+
+  ReleaseLocalLock(&lock_div);
+
+  return res;
+}
+
+double ARP_sub (double a, double b)
+{
+  AcquireLocalLock(&lock_sub);
+
+  double* addr_a = (double*)(FPU_BASE+104);
+  double* addr_b = (double*)(FPU_BASE+112);
+  double* result = (double*)(FPU_BASE+120);
+
+  *addr_a = a;
+  *addr_b = b;
+  double res = *result;
+
+  AcquireLocalLock(&lock_sub);
+
+  return res;
 }
 
 void ARP_FFT1DOnce(long MyNum, long direction, long M, long N, double *u, double *x)
@@ -249,8 +355,6 @@ int main(int argc, char *argv[])
   ReleaseLocalLock(&lock1);
   /* Fim MC723 */
 
-if (MyNum > 0) exit(0);
-
   {
 	  struct timeval	FullTime;
 	  gettimeofday(&FullTime, NULL);
@@ -260,6 +364,7 @@ if (MyNum > 0) exit(0);
   /* Faz primeira parte apenas para o primeiro processador */
   if (MyNum == 0)
   {
+
     while ((c = getopt(argc, argv, "p:m:n:l:stoh")) != -1) {
       switch(c) {
         case 'm': M = atoi(optarg); 
@@ -404,7 +509,6 @@ if (MyNum > 0) exit(0);
     continue_program=1;
     ReleaseLocalLock(&lock1);
     // fim-mc723
-
   }
 
   // fft - barreira para inicio do algoritmo
@@ -575,15 +679,11 @@ void SlaveStart(long MyNum)
   FFT1D(1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
 	MyLast, pad_length, test_result, dostats, fft_barrier1);
 
-  printf("Executou FFT1D\n");
-
   /* perform backward FFT */
   if (test_result) {
     FFT1D(-1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
 	  MyLast, pad_length, test_result, dostats, fft_barrier2);
   }  
-
-  printf("Executou FFT1D de novo\n");
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -675,8 +775,8 @@ void InitU(long N, double *u)
       if (base+j > rootN-1) { 
 	return;
       }
-      u[2*(base+j)] = cos(2.0*PI*j/(2*n1));
-      u[2*(base+j)+1] = -sin(2.0*PI*j/(2*n1));
+      u[2*(base+j)] = ARP_cos( ARP_div( ARP_mult( ARP_mult(2.0,PI), j), 2*n1) );
+      u[2*(base+j)+1] = -ARP_sin( ARP_div( ARP_mult( ARP_mult(2.0,PI), j), 2*n1) );
     }
   }
 }
@@ -689,8 +789,8 @@ void InitU2(long N, double *u, long n1)
   for (j=0; j<n1; j++) {  
     k = j*(rootN+pad_length);
     for (i=0; i<n1; i++) {  
-      u[2*(k+i)] = cos(2.0*PI*i*j/(N));
-      u[2*(k+i)+1] = -sin(2.0*PI*i*j/(N));
+      u[2*(k+i)] = ARP_cos( ARP_div( ARP_mult( ARP_mult(2.0,PI), i*j), N) );
+      u[2*(k+i)+1] = -ARP_sin( ARP_div( ARP_mult( ARP_mult(2.0,PI), i*j), N) );
     }
   }
 }
@@ -763,8 +863,8 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
 
   /* do n1 1D FFTs on columns */
   for (j=MyFirst; j<MyLast; j++) {
-    //FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
-    ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
+    //ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
+    FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
     TwiddleOneCol(direction, n1, j, umain2, &scratch[2*j*(n1+pad_length)], pad_length);
   }  
 
@@ -805,8 +905,8 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
 
   /* do n1 1D FFTs on columns again */
   for (j=MyFirst; j<MyLast; j++) {
-    //FFT1DOnce(direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
-    ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
+    //ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
+    FFT1DOnce(direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
     if (direction == -1)
       Scale(n1, N, &x[2*j*(n1+pad_length)]);
   }

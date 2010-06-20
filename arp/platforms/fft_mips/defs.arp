@@ -1,4 +1,4 @@
-IP := ac_tlm_mem ac_tlm_lock fft_fft1d
+IP := ac_tlm_mem ac_tlm_lock fft_fft1d fft_fpu
 IS := ac_tlm_router
 PROCESSOR := mips1
 SW := fft
