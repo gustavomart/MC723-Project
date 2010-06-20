@@ -1,18 +1,9 @@
 /**
- * @file      ac_tlm_mem.h
- * @author    Bruno de Carvalho Albertini
+ * @file      fft_transpose.h
+ * @author    Felipe Mesquita
  *
- * @author    The ArchC Team
- *            http://www.archc.org/
  *
- *            Computer Systems Laboratory (LSC)
- *            IC-UNICAMP
- *            http://www.lsc.ic.unicamp.br/
- *
- * @version   0.1
- * @date      Sun, 02 Apr 2006 08:07:46 -0200
- *
- * @brief     Defines a ac_tlm memory.
+ * @brief     Defines a fft matrix transposer.
  *
  * @attention Copyright (C) 2002-2005 --- The ArchC Team
  *
@@ -31,8 +22,8 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef AC_TLM_MEM_H_
-#define AC_TLM_MEM_H_
+#ifndef AC_TLM_transpose_H_
+#define AC_TLM_transpose_H_
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -41,6 +32,7 @@
 #include <systemc>
 // ArchC includes
 #include "ac_tlm_protocol.H"
+#include "ac_tlm_port.H"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -51,22 +43,23 @@ using tlm::tlm_transport_if;
 
 //#define DEBUG
 
-/// Namespace to isolate memory from ArchC
+/// Namespace to isolate adouble from ArchC
 namespace user
 {
 
-/// A TLM memory
-class ac_tlm_mem :
+/// A TLM lock register
+class fft_transpose :
   public sc_module,
   public ac_tlm_transport_if // Using ArchC TLM protocol
 {
 public:
   /// Exposed port with ArchC interface
-  sc_export< ac_tlm_transport_if > target_export, target_fftport, target_transposeport;
+  sc_export< ac_tlm_transport_if > target_export;
   /// Internal write
-  ac_tlm_rsp_status writem( const uint32_t & , const uint32_t & );
-  /// Internal read
-  ac_tlm_rsp_status readm( const uint32_t & , uint32_t & );
+  ac_tlm_rsp_status write(const uint32_t &a , const uint32_t &d);
+  ac_tlm_rsp_status read(const uint32_t &a , const uint32_t &d);
+
+  ac_tlm_port R_port_mem;
 
   /**
    * Implementation of TLM transport method that
@@ -85,14 +78,14 @@ public:
     cout << "Transport READ at 0x" << hex << request.addr << " value ";
     cout << response.data << endl;
       #endif
-      response.status = readm( request.addr , response.data );
+      response.status = read( request.addr , response.data );
       break;
     case WRITE:     // Packet is a WRITE
       #ifdef DEBUG
     cout << "Transport WRITE at 0x" << hex << request.addr << " value ";
     cout << request.data << endl;
       #endif
-      response.status = writem( request.addr , request.data );
+      response.status = write( request.addr , request.data );
       break;
     default :
       response.status = ERROR;
@@ -100,27 +93,39 @@ public:
     }
 
     return response;
+
   }
 
 
   /**
    * Default constructor.
    *
-   * @param k Memory size in kilowords.
-   *
    */
-  ac_tlm_mem( sc_module_name module_name , int k = 5242880 );
+  fft_transpose( sc_module_name module_name );
 
   /**
    * Default destructor.
    */
-  ~ac_tlm_mem();
+  ~fft_transpose();
 
 private:
-  uint8_t *memory;
+  // matrix transpose result
+//   double *matrix_transpose;
+  uint32_t _n1; 
+  double *_src; 
+  double *_dest; 
+  uint32_t _MyNum; 
+  uint32_t _MyFirst; 
+  uint32_t _MyLast; 
+  uint32_t _pad_length;
+  uint32_t _P;
+  uint32_t _num_cache_lines;
+
+  double read_double( double* a );
+  void write_double( double* a, double d );
 
 };
 
 };
 
-#endif //AC_TLM_MEM_H_
+#endif //AC_TLM_transpose_H_

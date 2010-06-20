@@ -41,7 +41,8 @@ ac_tlm_router::ac_tlm_router( sc_module_name module_name ) :
   R_port_mem("R_port_mem", 5242880U),
   R_port_lock("R_port_lock", 32U),
   R_port_fft1d("R_port_fft1d", 1048576U),
-  R_port_fpu("R_port_fpu", 256U)
+  R_port_fpu("R_port_fpu", 256U),
+  R_port_transpose("R_port_transpose", 256U)
 {
     /// Binds target_export to the router
     target_export1( *this );
@@ -88,10 +89,10 @@ ac_tlm_rsp ac_tlm_router::route( const ac_tlm_req &request )
   }
   else if (request.addr >= TRANSPOSE_BASE)
   {
-    // Route to Read&Inc register
+    // Route to Transpose peripheric
     ac_tlm_req req_aux = request;
     req_aux.addr -= TRANSPOSE_BASE;
-    return R_port_lock->transport( req_aux );
+    return R_port_transpose->transport( req_aux );
   }
   
 }

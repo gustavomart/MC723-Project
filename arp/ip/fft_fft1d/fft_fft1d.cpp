@@ -56,13 +56,13 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
     case 0:
       *((uint32_t *) &MyNum) = *((uint32_t *) &d);
     case 4:
-      *((uint32_t *) &zdirection[MyNum]) = *((uint32_t *) &d);
+      *((uint32_t *) &_direction) = *((uint32_t *) &d);
       break;
     case 8:
-      *((uint32_t *) &zM[MyNum]) = *((uint32_t *) &d);
+      *((uint32_t *) &_M) = *((uint32_t *) &d);
       break;
     case 12:
-      *((uint32_t *) &zN[MyNum]) = *((uint32_t *) &d);
+      *((uint32_t *) &_N) = *((uint32_t *) &d);
       break;
     case 16:
       *((uint32_t *) &vet_u[MyNum]) = *((uint32_t *) &d);
@@ -80,28 +80,28 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
 */
 ac_tlm_rsp_status fft_fft1d::read( const uint32_t &a , uint32_t &d )
 {
-  //printf("FFT1DOnce: %d %d %d %d %p %p\n", a/4, zdirection[a/4], zM[a/4], zN[a/4], vet_u[a/4], vet_x[a/4]);
-
-  FFT1DOnce(zdirection[a/4], zM[a/4], zN[a/4], vet_u[a/4], vet_x[a/4]);
+  if (a == 24)
+    FFT1DOnce(_direction, _M, _N, _u, _x);
 
   return SUCCESS;
 }
 
 double fft_fft1d::read_double( double* a )
 {
-  ac_tlm_req request;
-  request.type = READ;
+  ac_tlm_req request1, request2;
   uint32_t value[2];
   uint32_t addr = (uint32_t)a;
 
   // le primeira parte
-  request.addr = addr;
-  ac_tlm_rsp first_part = R_port_mem->transport( request );
+  request1.addr = addr;
+  request1.type = READ;
+  ac_tlm_rsp first_part = R_port_mem->transport( request1 );
   *((uint32_t *)&value[1]) = *((uint32_t *) &first_part.data);
 
   // le segunda parte
-  request.addr = addr+4;
-  ac_tlm_rsp second_part = R_port_mem->transport( request );
+  request2.addr = addr+4;
+  request2.type = READ;
+  ac_tlm_rsp second_part = R_port_mem->transport( request2 );
   *((uint32_t *)&value[0]) = *((uint32_t *) &second_part.data);
 
   return *(double*)&value;
@@ -109,20 +109,22 @@ double fft_fft1d::read_double( double* a )
 
 void fft_fft1d::write_double( double* a, double d )
 {
-  ac_tlm_req request;
-  request.type = WRITE;
+  ac_tlm_req request1, request2;
   uint32_t addr = (uint32_t)a;
-  uint32_t *value = (uint32_t *) &d;
+  uint32_t value[2];
+  *((double*) value) = *((uint32_t *) &d);
 
   // escreve primeira parte
-  request.addr = addr;
-  *((uint32_t *) &request.data) = *((uint32_t *) &value[1]);
-  R_port_mem->transport( request );
+  request1.addr = addr;
+  request1.type = WRITE;
+  *((uint32_t *) &request1.data) = *((uint32_t *) &value[1]);
+  R_port_mem->transport( request1 );
 
   // escreve segunda parte
-  request.addr = addr+4;
-  *((uint32_t *) &request.data) = *((uint32_t *) &value[0]);
-  R_port_mem->transport( request );
+  request2.addr = addr+4;
+  request2.type = WRITE;
+  *((uint32_t *) &request2.data) = *((uint32_t *) &value[0]);
+  R_port_mem->transport( request2 );
 }
 
 long fft_fft1d::BitReverse(long M, long k)

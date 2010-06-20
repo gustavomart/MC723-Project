@@ -34,12 +34,14 @@ const char *archc_options="-abi -dy ";
 #include  "ac_tlm_router.h"
 #include  "fft_fft1d.h"
 #include  "fft_fpu.h"
+#include  "fft_transpose.h"
 
 using user::ac_tlm_mem;
 using user::ac_tlm_lock;
 using user::ac_tlm_router;
 using user::fft_fft1d;
 using user::fft_fpu;
+using user::fft_transpose;
 
 #define NPROC 4
 
@@ -67,6 +69,7 @@ int sc_main(int ac, char *av[])
   ac_tlm_router router("router");
   fft_fft1d fft1d("fft1d");
   fft_fpu fpu("fpu");
+  fft_transpose transpose("transpose");
 
 #ifdef AC_DEBUG
   ac_trace("mips1_proc1.trace");
@@ -81,8 +84,10 @@ int sc_main(int ac, char *av[])
   router.R_port_lock(lock.target_export);
   router.R_port_fft1d(fft1d.target_export);
   router.R_port_fpu(fpu.target_export);
+  router.R_port_transpose(transpose.target_export);
 
   fft1d.R_port_mem(mem.target_fftport);
+  transpose.R_port_mem(mem.target_transposeport);
 
   mips1_proc1.init(ac, (char**)param[0]);
   mips1_proc2.init(ac, (char**)param[1]);

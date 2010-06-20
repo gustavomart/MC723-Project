@@ -4,7 +4,7 @@
 
 CC = mips-elf-gcc
 CFLAGS = -msoft-float -specs=archc
-LDFLAGS = -lm
+LDFLAGS =
 
 TARGET = fft.x
 INC_DIR := -I.
