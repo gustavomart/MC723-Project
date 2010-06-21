@@ -65,46 +65,163 @@ ac_tlm_rsp_status fft_transpose::write(const uint32_t &a , const uint32_t &d)
  //32 - 35 = num_cache_lines
  
    switch(*((uint32_t *)&a)){
-    // grava n1
-     case 0:
-      *((uint32_t *)&_n1) = *((uint32_t *)&d);
+      // grava MyNum
+    case 0:
+      *((uint32_t *)&_MyNum) = *((uint32_t *)&d);
+      break;
+      // grava n1
+    case 4:
+      *((uint32_t *)&_n1[_MyNum]) = *((uint32_t *)&d);
       break;
       // grava src
-    case 4:
-      *((uint32_t *)&_src) = *((uint32_t *)&d);
+    case 8:
+      *((uint32_t *)&_src[_MyNum]) = *((uint32_t *)&d);
       break;
       // grava dest
-    case 8:
-      *((uint32_t *)&_dest) = *((uint32_t *)&d);
-      break;
-      // grava MyNum
     case 12:
-      *((uint32_t *)&_MyNum) = *((uint32_t *)&d);
+      *((uint32_t *)&_dest[_MyNum]) = *((uint32_t *)&d);
       break;
       // grava MyFirst
     case 16:
-      *((uint32_t *)&_MyFirst) = *((uint32_t *)&d);
+      *((uint32_t *)&_MyFirst[_MyNum]) = *((uint32_t *)&d);
       break;
       // grava MyLast
     case 20:
-      *((uint32_t *)&_MyLast) = *((uint32_t *)&d);
+      *((uint32_t *)&_MyLast[_MyNum]) = *((uint32_t *)&d);
       break;
       // grava pad_length
     case 24:
-      *((uint32_t *)&_pad_length) = *((uint32_t *)&d);
+      *((uint32_t *)&_pad_length[_MyNum]) = *((uint32_t *)&d);
       break;
       // grava P
     case 28:
-      *((uint32_t *)&_P) = *((uint32_t *)&d);
+      *((uint32_t *)&_P[_MyNum]) = *((uint32_t *)&d);
       break;
       // grava num_cache_lines
     case 32:
-      *((uint32_t *)&_num_cache_lines) = *((uint32_t *)&d);
+      *((uint32_t *)&_num_cache_lines[_MyNum]) = *((uint32_t *)&d);
       break;
     default:
       return ERROR;
   }
   return SUCCESS;
+}
+
+/** Transpose matrix and save the result on dest.
+  * @returns A TLM response packet with SUCCESS and a transpose matrix dest
+*/
+ac_tlm_rsp_status fft_transpose::read(const uint32_t &a , const uint32_t &d)
+{
+  
+  if((*((const uint32_t *) &a) >= 36)) 
+  {
+      int pos = (a-36)/4;
+      Transpose(_n1[pos], _src[pos], _dest[pos], pos, _MyFirst[pos], _MyLast[pos], _pad_length[pos], _num_cache_lines[pos], _P[pos]);
+  }
+
+  return SUCCESS;
+}
+
+void fft_transpose::Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst, long MyLast, long pad_length, long num_cache_lines, long P)
+{
+  long i; 
+  long j; 
+  long k; 
+  long l; 
+  long m;
+  long blksize;
+  long numblks;
+  long firstfirst;
+  long h_off;
+  long v_off;
+  long v;
+  long h;
+  long n1p;
+  long row_count;
+ 
+        blksize = (long)(MyLast-MyFirst);
+        numblks = (2*blksize)/(long)num_cache_lines;
+
+        if (numblks * (long)num_cache_lines != 2 * blksize) 
+        {
+          numblks ++;
+        }
+
+        blksize = blksize / numblks;
+        firstfirst = (long)MyFirst;
+        row_count = (long)(n1/P);
+        n1p = (long)(n1+pad_length);
+
+        for (l=(long)MyNum+1;l< (long)P;l++) 
+        {
+            v_off = l*row_count;
+          
+            for (k=0; k<numblks; k++) 
+            {
+                h_off = firstfirst;
+                for (m=0; m<numblks; m++) 
+                {
+                    for (i=0; i<blksize; i++) 
+                    {
+                  	    v = v_off + i;
+                        for (j=0; j<blksize; j++) 
+                        {
+                      	    h = h_off + j;
+                            // acesso direto a memoria
+                            write_double( dest+(2*(h*n1p+v)), read_double( src+(2*(v*n1p+h)) ) );
+                            write_double( dest+(2*(h*n1p+v)+1), read_double( src+(2*(v*n1p+h)+1) ) );
+                        }
+                    }
+	                  
+                    h_off += blksize;
+                }
+                v_off+=blksize;
+            }
+        }
+
+        for (l=0;l< (long)MyNum;l++) {
+            v_off = l*row_count;
+            for (k=0; k<numblks; k++) {
+                h_off = firstfirst;
+                for (m=0; m<numblks; m++) {
+                    for (i=0; i<blksize; i++) {
+                    	  v = v_off + i;
+                        for (j=0; j<blksize; j++) {
+                            h = h_off + j;
+                            // acesso direto a memoria
+                            write_double( dest+(2*(h*n1p+v)), read_double( src+(2*(v*n1p+h)) ) );
+                            write_double( dest+(2*(h*n1p+v)+1), read_double( src+(2*(v*n1p+h)+1) ) );
+                        }
+                     }
+	                  h_off += blksize;
+                }
+                v_off+=blksize;
+            }
+        }
+
+        v_off = (long)MyNum*row_count;
+        for (k=0; k<numblks; k++) 
+        {
+            h_off = firstfirst;
+            for (m=0; m<numblks; m++) 
+            {
+                for (i=0; i<blksize; i++) 
+                {
+                    v = v_off + i;
+                    for (j=0; j<blksize; j++) 
+                    {
+                        h = h_off + j;
+                        // acesso direto a memoria
+                        write_double( dest+(2*(h*n1p+v)), read_double( src+(2*(v*n1p+h)) ) );
+                        write_double( dest+(2*(h*n1p+v)+1), read_double( src+(2*(v*n1p+h)+1) ) );
+	                  }
+                }
+                h_off += blksize;
+            }
+            v_off+=blksize;
+        }
+
+
 }
 
 double fft_transpose::read_double( double* a )
@@ -147,117 +264,5 @@ void fft_transpose::write_double( double* a, double d )
   *((uint32_t *) &request2.data) = *((uint32_t *) &value[0]);
   R_port_mem->transport( request2 );
 }
-
-
-/** Transpose matrix and save the result on dest.
-  * @returns A TLM response packet with SUCCESS and a transpose matrix dest
-*/
-ac_tlm_rsp_status fft_transpose::read(const uint32_t &a , const uint32_t &d)
-{
-  long i; 
-  long j; 
-  long k; 
-  long l; 
-  long m;
-  long blksize;
-  long numblks;
-  long firstfirst;
-  long h_off;
-  long v_off;
-  long v;
-  long h;
-  long n1p;
-  long row_count;
-  
-  if((*((const uint32_t *) &a) == 36)) 
-  {
- 
-        blksize = (long)(_MyLast-_MyFirst);
-        numblks = (2*blksize)/(long)_num_cache_lines;
-
-        if (numblks * (long)_num_cache_lines != 2 * blksize) 
-        {
-          numblks ++;
-        }
-
-        blksize = blksize / numblks;
-        firstfirst = (long)_MyFirst;
-        row_count = (long)(_n1/_P);
-        n1p = (long)(_n1+_pad_length);
-
-        for (l=(long)_MyNum+1;l< (long)_P;l++) 
-        {
-            v_off = l*row_count;
-          
-            for (k=0; k<numblks; k++) 
-            {
-                h_off = firstfirst;
-                for (m=0; m<numblks; m++) 
-                {
-                    for (i=0; i<blksize; i++) 
-                    {
-                  	    v = v_off + i;
-                        for (j=0; j<blksize; j++) 
-                        {
-                      	    h = h_off + j;
-                            // acesso direto a memoria
-                            write_double( _dest+(2*(h*n1p+v)), read_double( _src+(2*(v*n1p+h)) ) );
-                            write_double( _dest+(2*(h*n1p+v)+1), read_double( _src+(2*(v*n1p+h)+1) ) );
-                        }
-                    }
-	                  
-                    h_off += blksize;
-                }
-                v_off+=blksize;
-            }
-        }
-
-        for (l=0;l< (long)_MyNum;l++) {
-            v_off = l*row_count;
-            for (k=0; k<numblks; k++) {
-                h_off = firstfirst;
-                for (m=0; m<numblks; m++) {
-                    for (i=0; i<blksize; i++) {
-                    	  v = v_off + i;
-                        for (j=0; j<blksize; j++) {
-                            h = h_off + j;
-                            // acesso direto a memoria
-                            write_double( _dest+(2*(h*n1p+v)), read_double( _src+(2*(v*n1p+h)) ) );
-                            write_double( _dest+(2*(h*n1p+v)+1), read_double( _src+(2*(v*n1p+h)+1) ) );
-                        }
-                     }
-	                  h_off += blksize;
-                }
-                v_off+=blksize;
-            }
-        }
-
-        v_off = (long)_MyNum*row_count;
-        for (k=0; k<numblks; k++) 
-        {
-            h_off = firstfirst;
-            for (m=0; m<numblks; m++) 
-            {
-                for (i=0; i<blksize; i++) 
-                {
-                    v = v_off + i;
-                    for (j=0; j<blksize; j++) 
-                    {
-                        h = h_off + j;
-                        // acesso direto a memoria
-                        write_double( _dest+(2*(h*n1p+v)), read_double( _src+(2*(v*n1p+h)) ) );
-                        write_double( _dest+(2*(h*n1p+v)+1), read_double( _src+(2*(v*n1p+h)+1) ) );
-	                  }
-                }
-                h_off += blksize;
-            }
-            v_off+=blksize;
-        }
-
-  }
-
-  return SUCCESS;
-}
-
 
 

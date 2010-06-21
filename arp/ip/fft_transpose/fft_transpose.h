@@ -111,18 +111,19 @@ public:
 private:
   // matrix transpose result
 //   double *matrix_transpose;
-  uint32_t _n1; 
-  double *_src; 
-  double *_dest; 
-  uint32_t _MyNum; 
-  uint32_t _MyFirst; 
-  uint32_t _MyLast; 
-  uint32_t _pad_length;
-  uint32_t _P;
-  uint32_t _num_cache_lines;
+  long _MyNum; 
+  long _n1[4]; 
+  double* _src[4]; 
+  double* _dest[4]; 
+  long _MyFirst[4]; 
+  long _MyLast[4]; 
+  long _pad_length[4];
+  long _P[4];
+  long _num_cache_lines[4];
 
   double read_double( double* a );
   void write_double( double* a, double d );
+  void Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst, long MyLast, long pad_length, long num_cache_lines, long P);
 
 };
 

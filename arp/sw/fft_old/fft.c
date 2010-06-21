@@ -44,36 +44,22 @@
 /*************************************************************************/
 
 #include <stdio.h>
+#include <math.h>
 
 /*************************************************************************/
 /*		              ARP Macros				 */
 /*************************************************************************/
 
-#define MEM_BASE 0x000000
-#define LOCK_BASE 0x500000
-#define FPU_BASE 0x600000
-#define FFT1D_BASE 0x700000
-#define TRANS_BASE 0x800000
-
+#define GLOBAL_LOCK 0x500000
 #define AcquireGlobalLock while(*g_lock)
 #define ReleaseGlobalLock *g_lock=0
 
 typedef volatile int barrier_t;
 typedef volatile int lock_t;
 
-lock_t *g_lock = (int*) LOCK_BASE;
+lock_t *g_lock = (int*) GLOBAL_LOCK;
 lock_t lock1 = 0;
 volatile int proc=0;
-
-// locks para componentes
-lock_t lock_fft1d = 0;
-lock_t lock_trans = 0;
-lock_t lock_add = 0;
-lock_t lock_sub = 0;
-lock_t lock_mult = 0;
-lock_t lock_div = 0;
-lock_t lock_sin = 0;
-lock_t lock_cos = 0;
 
 volatile int P = 4;
 
@@ -117,161 +103,6 @@ void inline Barrier(barrier_t *barrier, lock_t *lock)
   ReleaseLocalLock(lock);
 }
 
-double ARP_mult (double a, double b)
-{
-  AcquireLocalLock(&lock_mult);
-
-  double* addr_a = (double*)(FPU_BASE+0);
-  double* addr_b = (double*)(FPU_BASE+8);
-  double* result = (double*)(FPU_BASE+16);
-
-  *addr_a = a;
-  *addr_b = b;
-  double res = *result;
-
-  ReleaseLocalLock(&lock_mult);
-
-  return res;
-}
-
-double ARP_add (double a, double b)
-{
-  AcquireLocalLock(&lock_add);
-
-  double* addr_a = (double*)(FPU_BASE+24);
-  double* addr_b = (double*)(FPU_BASE+32);
-  double* result = (double*)(FPU_BASE+40);
-
-  *addr_a = a;
-  *addr_b = b;
-  double res = *result;
-
-  ReleaseLocalLock(&lock_add);
-
-  return res;
-}
-
-double ARP_sin (double a)
-{
-  AcquireLocalLock(&lock_sin);
-
-  double* addr_a = (double*)(FPU_BASE+48);
-  double* result = (double*)(FPU_BASE+56);
-
-  *addr_a = a;
-  double res = *result;
-
-  ReleaseLocalLock(&lock_sin);
-
-  return res;
-}
-
-double ARP_cos (double a)
-{
-  AcquireLocalLock(&lock_cos);
-
-  double* addr_a = (double*)(FPU_BASE+64);
-  double* result = (double*)(FPU_BASE+72);
-
-  *addr_a = a;
-  double res = *result;
-
-  ReleaseLocalLock(&lock_cos);
-
-  return res;
-}
-
-double ARP_div (double a, double b)
-{
-  AcquireLocalLock(&lock_div);
-
-  double* addr_a = (double*)(FPU_BASE+80);
-  double* addr_b = (double*)(FPU_BASE+88);
-  double* result = (double*)(FPU_BASE+96);
-
-  *addr_a = a;
-  *addr_b = b;
-  double res = *result;
-
-  ReleaseLocalLock(&lock_div);
-
-  return res;
-}
-
-double ARP_sub (double a, double b)
-{
-  AcquireLocalLock(&lock_sub);
-
-  double* addr_a = (double*)(FPU_BASE+104);
-  double* addr_b = (double*)(FPU_BASE+112);
-  double* result = (double*)(FPU_BASE+120);
-
-  *addr_a = a;
-  *addr_b = b;
-  double res = *result;
-
-  ReleaseLocalLock(&lock_sub);
-
-  return res;
-}
-
-void ARP_Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst, long MyLast, long pad_length, long num_cache_lines)
-{
-  long *arp_MyNum = (long*)(TRANS_BASE);
-  long *arp_n1 = (long*)(TRANS_BASE+4);
-  double **arp_src = (double**)(TRANS_BASE+8);
-  double **arp_dest = (double**)(TRANS_BASE+12);
-  long *arp_MyFirst = (long*)(TRANS_BASE+16);
-  long *arp_MyLast = (long*)(TRANS_BASE+20);
-  long *arp_pad_length = (long*)(TRANS_BASE+24);
-  long *arp_P = (long*)(TRANS_BASE+28);
-  long *arp_num_cache_lines = (long*)(TRANS_BASE+32);
-  long *calcula_Transpose = (long*)(TRANS_BASE+36+4*MyNum);
-
-  AcquireLocalLock(&lock_trans);
-
-  *arp_MyNum = MyNum;
-  *arp_n1 = n1;
-  *arp_src = src;
-  *arp_dest = dest;
-  *arp_MyFirst = MyFirst;
-  *arp_MyLast = MyLast;
-  *arp_pad_length = pad_length;
-  *arp_P = P;
-  *arp_num_cache_lines = num_cache_lines;
-
-  ReleaseLocalLock(&lock_trans);
-
-  // calcular resultado
-  long res = *calcula_Transpose;
-}
-
-void ARP_FFT1DOnce(long MyNum, long direction, long M, long N, double *u, double *x)
-{
-  long *arp_mynum = (long*)(FFT1D_BASE);
-  long *arp_direction = (long*)(FFT1D_BASE+4);
-  long *arp_M = (long*)(FFT1D_BASE+8);
-  long *arp_N = (long*)(FFT1D_BASE+12);
-  double **vet_u = (double**)(FFT1D_BASE+16);
-  double **vet_x = (double**)(FFT1D_BASE+20);
-
-  long *calcula_FFT1DOnce = (long*)(FFT1D_BASE+24+4*MyNum);
-
-  AcquireLocalLock(&lock_fft1d);
-
-  *arp_mynum = MyNum;
-  *arp_direction = direction;
-  *arp_M = M;
-  *arp_N = N;
-  *vet_u = u;
-  *vet_x = x;
-
-  ReleaseLocalLock(&lock_fft1d);
-
-  // calcula o resultado
-  int foo = *calcula_FFT1DOnce;
-}
-
 // mc723
 lock_t idlock = 0;
 barrier_t start_barrier=0;
@@ -288,7 +119,7 @@ barrier_t fft_barrier2[5] = {0, 0, 0, 0, 0};
 #define NUM_CACHE_LINES        65536 
 #define LOG2_LINE_SIZE             4
 #define PI                    3.1416
-#define DEFAULT_M                  10
+#define DEFAULT_M                 10
 
 #include <sys/time.h>
 #include <unistd.h>
@@ -374,7 +205,6 @@ int main(int argc, char *argv[])
   /* MC723 - Precisa descobrir ID e enviar para função SlaveStart */
   long MyNum;
   AcquireLocalLock(&lock1);
-
     MyNum = proc++;
     /* Se é o primeiro cria o Global */
     if (MyNum == 0)
@@ -383,8 +213,7 @@ int main(int argc, char *argv[])
       printf("Criou <Global>\n");
     }
     Global->id++;
-    printf("MyNum = %d\n", MyNum);
-
+    printf("MyId = %d\n", MyNum);
   ReleaseLocalLock(&lock1);
   /* Fim MC723 */
 
@@ -397,7 +226,6 @@ int main(int argc, char *argv[])
   /* Faz primeira parte apenas para o primeiro processador */
   if (MyNum == 0)
   {
-
     while ((c = getopt(argc, argv, "p:m:n:l:stoh")) != -1) {
       switch(c) {
         case 'm': M = atoi(optarg); 
@@ -542,6 +370,7 @@ int main(int argc, char *argv[])
     continue_program=1;
     ReleaseLocalLock(&lock1);
     // fim-mc723
+
   }
 
   // fft - barreira para inicio do algoritmo
@@ -553,9 +382,13 @@ int main(int argc, char *argv[])
       exit(0);
   }
 
+  printf("Vai entrar no SlaveStart\n");
+
   /* fire off P processes */
   /* MC723 - Passa MyNum que indica o numero do processador */
   SlaveStart(MyNum);
+
+  printf("Saiu do SlaveStart\n");
 
   // fft - barreira para fim do algoritmo
   Barrier(&finish_barrier, &lock1);
@@ -587,9 +420,9 @@ int main(int argc, char *argv[])
         avgcomptime = Global->totaltimes[0];
         maxtotal = Global->totaltimes[0];
         mintotal = Global->totaltimes[0];
-        maxfrac = ARP_div( ((double)Global->transtimes[0]), Global->totaltimes[0] );
-        minfrac = ARP_div( ((double)Global->transtimes[0]), Global->totaltimes[0] );
-        avgfractime = ARP_div( ((double)Global->transtimes[0]), Global->totaltimes[0] );
+        maxfrac = ((double)Global->transtimes[0])/Global->totaltimes[0];
+        minfrac = ((double)Global->transtimes[0])/Global->totaltimes[0];
+        avgfractime = ((double)Global->transtimes[0])/Global->totaltimes[0];
         for (i=1;i<P;i++) {
           if (Global->transtimes[i] > transtime) {
             transtime = Global->transtimes[i];
@@ -604,20 +437,20 @@ int main(int argc, char *argv[])
             mintotal = Global->totaltimes[i];
           }
           if (((double)Global->transtimes[i])/Global->totaltimes[i] > maxfrac) {
-            maxfrac = ARP_div( ((double)Global->transtimes[i]), Global->totaltimes[i] );
+            maxfrac = ((double)Global->transtimes[i])/Global->totaltimes[i];
           }
           if (((double)Global->transtimes[i])/Global->totaltimes[i] < minfrac) {
-            minfrac = ARP_div( ((double)Global->transtimes[i]), Global->totaltimes[i] );
+            minfrac = ((double)Global->transtimes[i])/Global->totaltimes[i];
           }
           printf("  %3ld        %10ld     %10ld      %8.5f\n",
                  i,Global->totaltimes[i],Global->transtimes[i],
-                 ARP_div( ((double)Global->transtimes[i]), Global->totaltimes[i] ) );
+                 ((double)Global->transtimes[i])/Global->totaltimes[i]);
           avgtranstime += Global->transtimes[i];
           avgcomptime += Global->totaltimes[i];
-          avgfractime += ARP_div( ((double)Global->transtimes[i]), Global->totaltimes[i] );
+          avgfractime += ((double)Global->transtimes[i])/Global->totaltimes[i];
         }
         printf("  Avg        %10.0f     %10.0f      %8.5f\n",
-               ARP_div( ((double) avgcomptime), P ), ARP_div( ((double) avgtranstime), P ), ARP_div( avgfractime, P ) );
+               ((double) avgcomptime)/P,((double) avgtranstime)/P,avgfractime/P);
         printf("  Max        %10ld     %10ld      %8.5f\n",
 	       maxtotal,transtime,maxfrac);
         printf("  Min        %10ld     %10ld      %8.5f\n",
@@ -639,15 +472,15 @@ int main(int argc, char *argv[])
       printf("Overall transpose time            : %16ld\n",
              transtime);
       printf("Overall transpose fraction        : %16.5f\n",
-             ARP_div( ((double) transtime), ARP_sub( Global->finishtime, Global->initdonetime ) ) );
+             ((double) transtime)/(Global->finishtime-Global->initdonetime));
       printf("\n");
 
       if (test_result) {
         ck3 = CheckSum(x);
         printf("              INVERSE FFT TEST RESULTS\n");
         printf("Checksum difference is %.3f (%.3f, %.3f)\n",
-	       ARP_sub( ck1, ck3 ), ck1, ck3);
-        if (fabs( ARP_sub( ck1, ck3 ) ) < 0.001) {
+	       ck1-ck3, ck1, ck3);
+        if (fabs(ck1-ck3) < 0.001) {
           printf("TEST PASSED\n");
         } else {
           printf("TEST FAILED\n");
@@ -656,8 +489,7 @@ int main(int argc, char *argv[])
   
   }
 
-  exit(0); // To avoid cross-compiler exit routine
-  return 0; // Never executed, just for compatibility
+  exit(0);
 }
 
 /* MC723 - Passa MyNum como parametro porque é descoberto no main() */
@@ -670,6 +502,8 @@ void SlaveStart(long MyNum)
   long l_transtime=0;
   long MyFirst; 
   long MyLast;
+
+  printf("Entrou no slavestart\n");
 
   upriv = (double *) malloc(2*(rootN-1)*sizeof(double));  
   if (upriv == NULL) {
@@ -707,11 +541,15 @@ void SlaveStart(long MyNum)
   FFT1D(1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
 	MyLast, pad_length, test_result, dostats, fft_barrier1);
 
+  printf("Executou FFT1D\n");
+
   /* perform backward FFT */
   if (test_result) {
     FFT1D(-1, M, N, x, trans, upriv, umain2, MyNum, &l_transtime, MyFirst, 
 	  MyLast, pad_length, test_result, dostats, fft_barrier2);
   }  
+
+  printf("Executou FFT1D de novo\n");
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -732,7 +570,7 @@ void SlaveStart(long MyNum)
     Global->finishtime = finish;
     Global->initdonetime = initdone;
   }
-
+  printf("Caiu \n");
 }
 
 /* Usar FPU */
@@ -743,14 +581,14 @@ double TouchArray(double *x, double *scratch, double *u, double *upriv, long MyF
 
   /* touch my data */
   for (j=0;j<2*(rootN-1);j++) {
-    tot = ARP_add( tot, upriv[j] );
+    tot += upriv[j];
   }   
   for (j=MyFirst; j<MyLast; j++) {
     k = j * (rootN + pad_length);
     for (i=0;i<rootN;i++) {
-      tot += ARP_add( ARP_add( ARP_add( 
-              ARP_add( ARP_add( x[2*(k+i)], x[2*(k+i)+1] ), 
-              scratch[2*(k+i)] ), scratch[2*(k+i)+1] ) , u[2*(k+i)] ), u[2*(k+i)+1] );
+      tot += x[2*(k+i)] + x[2*(k+i)+1] + 
+             scratch[2*(k+i)] + scratch[2*(k+i)+1] +
+	     u[2*(k+i)] + u[2*(k+i)+1];
     }
   }  
   return tot;
@@ -764,9 +602,9 @@ double CheckSum(double *x)
 
   cks = 0.0;
   for (j=0; j<rootN; j++) {
-    k =  j * (rootN + pad_length);
+    k = j * (rootN + pad_length);
     for (i=0;i<rootN;i++) {
-      cks = ARP_add( cks, ARP_add( x[2*(k+i)], x[2*(k+i)+1] ) );
+      cks += x[2*(k+i)] + x[2*(k+i)+1];
     }
   }
 
@@ -803,8 +641,8 @@ void InitU(long N, double *u)
       if (base+j > rootN-1) { 
 	return;
       }
-      u[2*(base+j)] = ARP_cos( ARP_div( ARP_mult( ARP_mult(2.0,PI), j), 2*n1) );
-      u[2*(base+j)+1] = -ARP_sin( ARP_div( ARP_mult( ARP_mult(2.0,PI), j), 2*n1) );
+      u[2*(base+j)] = cos(2.0*PI*j/(2*n1));
+      u[2*(base+j)+1] = -sin(2.0*PI*j/(2*n1));
     }
   }
 }
@@ -817,8 +655,8 @@ void InitU2(long N, double *u, long n1)
   for (j=0; j<n1; j++) {  
     k = j*(rootN+pad_length);
     for (i=0; i<n1; i++) {  
-      u[2*(k+i)] = ARP_cos( ARP_div( ARP_mult( ARP_mult(2.0,PI), i*j), N) );
-      u[2*(k+i)+1] = -ARP_sin( ARP_div( ARP_mult( ARP_mult(2.0,PI), i*j), N) );
+      u[2*(k+i)] = cos(2.0*PI*i*j/(N));
+      u[2*(k+i)+1] = -sin(2.0*PI*i*j/(N));
     }
   }
 }
@@ -872,8 +710,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   }
 
   /* transpose from x into scratch */
-  //Transpose(n1, x, scratch, MyNum, MyFirst, MyLast, pad_length);
-  ARP_Transpose(n1, x, scratch, MyNum, MyFirst, MyLast, pad_length, num_cache_lines);
+  Transpose(n1, x, scratch, MyNum, MyFirst, MyLast, pad_length);
   
   if ((MyNum == 0) || (dostats)) {
     {
@@ -892,8 +729,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
 
   /* do n1 1D FFTs on columns */
   for (j=MyFirst; j<MyLast; j++) {
-    ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
-    //FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
+    FFT1DOnce(direction, m1, n1, upriv, &scratch[2*j*(n1+pad_length)]);
     TwiddleOneCol(direction, n1, j, umain2, &scratch[2*j*(n1+pad_length)], pad_length);
   }  
 
@@ -915,8 +751,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
 };
   }
   /* transpose */
-  //Transpose(n1, scratch, x, MyNum, MyFirst, MyLast, pad_length);
-  ARP_Transpose(n1, scratch, x, MyNum, MyFirst, MyLast, pad_length, num_cache_lines);
+  Transpose(n1, scratch, x, MyNum, MyFirst, MyLast, pad_length);
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -935,8 +770,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
 
   /* do n1 1D FFTs on columns again */
   for (j=MyFirst; j<MyLast; j++) {
-    ARP_FFT1DOnce(MyNum, direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
-    //FFT1DOnce(direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
+    FFT1DOnce(direction, m1, n1, upriv, &x[2*j*(n1+pad_length)]);
     if (direction == -1)
       Scale(n1, N, &x[2*j*(n1+pad_length)]);
   }
@@ -960,8 +794,7 @@ void FFT1D(long direction, long M, long N, double *x, double *scratch, double *u
   }
 
   /* transpose back */
-  //Transpose(n1, x, scratch, MyNum, MyFirst, MyLast, pad_length);
-  ARP_Transpose(n1, x, scratch, MyNum, MyFirst, MyLast, pad_length, num_cache_lines);
+  Transpose(n1, x, scratch, MyNum, MyFirst, MyLast, pad_length);
 
   if ((MyNum == 0) || (dostats)) {
     {
@@ -1009,8 +842,8 @@ void TwiddleOneCol(long direction, long n1, long j, double *u, double *x, long p
     omega_c = direction*u[2*(j*(n1+pad_length)+i)+1];  
     x_r = x[2*i]; 
     x_c = x[2*i+1];
-    x[2*i] = ARP_sub( ARP_mult( omega_r, x_r ), ARP_mult( omega_c, x_c ) );
-    x[2*i+1] = ARP_add( ARP_mult( omega_r, x_c ), ARP_mult( omega_c, x_r ) );
+    x[2*i] = omega_r*x_r - omega_c*x_c;
+    x[2*i+1] = omega_r*x_c + omega_c*x_r;
   }
 }
 
@@ -1020,8 +853,8 @@ void Scale(long n1, long N, double *x)
   long i;
 
   for (i=0; i<n1; i++) {
-    x[2*i] = ARP_div( x[2*i], N );
-    x[2*i+1] = ARP_div( x[2*i+1], N );
+    x[2*i] /= N;
+    x[2*i+1] /= N;
   }
 }
 
@@ -1157,7 +990,6 @@ void FFT1DOnce(long direction, long M, long N, double *u, double *x)
   for (q=1; q<=M; q++) {
     L = 1<<q; r = N/L; Lstar = L/2;
     u1 = &u[2*(Lstar-1)];
-
     for (k=0; k<r; k++) {
       x1 = &x[2*(k*L)];
       x2 = &x[2*(k*L+Lstar)];
@@ -1206,4 +1038,24 @@ void printerr(char *s)
   fprintf(stderr,"ERROR: %s\n",s);
 }
 
+
+long log_2(long number)
+{
+  long cumulative = 1, out = 0, done = 0;
+
+  while ((cumulative < number) && (!done) && (out < 50)) {
+    if (cumulative == number) {
+      done = 1;
+    } else {
+      cumulative = cumulative * 2;
+      out ++;
+    }
+  }
+
+  if (cumulative == number) {
+    return(out);
+  } else {
+    return(-1);
+  }
+}
 

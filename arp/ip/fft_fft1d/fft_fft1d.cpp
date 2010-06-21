@@ -57,19 +57,19 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
       *((uint32_t *) &_MyNum) = *((uint32_t *) &d);
       break;
     case 4:
-      *((uint32_t *) &_direction) = *((uint32_t *) &d);
+      *((uint32_t *) &_direction[_MyNum]) = *((uint32_t *) &d);
       break;
     case 8:
-      *((uint32_t *) &_M) = *((uint32_t *) &d);
+      *((uint32_t *) &_M[_MyNum]) = *((uint32_t *) &d);
       break;
     case 12:
-      *((uint32_t *) &_N) = *((uint32_t *) &d);
+      *((uint32_t *) &_N[_MyNum]) = *((uint32_t *) &d);
       break;
     case 16:
-      *((uint32_t *) &_u) = *((uint32_t *) &d);
+      *((uint32_t *) &_u[_MyNum]) = *((uint32_t *) &d);
       break;
     case 20:
-      *((uint32_t *) &_x) = *((uint32_t *) &d);
+      *((uint32_t *) &_x[_MyNum]) = *((uint32_t *) &d);
       break;
     default:
       return ERROR;
@@ -85,8 +85,11 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
 */
 ac_tlm_rsp_status fft_fft1d::read( const uint32_t &a , uint32_t &d )
 {
-  if((*((const uint32_t *) &a) == 24)) 
-    FFT1DOnce((long)_direction, (long)_M, (long)_N, (double*)_u, (double*)_x);
+  if((*((const uint32_t *) &a) >= 24)) 
+  {
+    long pos = (a-24)/4;
+    FFT1DOnce((long)_direction[pos], (long)_M[pos], (long)_N[pos], (double*)_u[pos], (double*)_x[pos]);
+  }
 
   return SUCCESS;
 }
