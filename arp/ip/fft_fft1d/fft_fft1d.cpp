@@ -122,8 +122,7 @@ void fft_fft1d::write_double( double* a, double d )
   uint32_t value[2];
   *((double*) value) = *((double *) &d);
 
-  // SEM ESSA LINHA NAO FUNCIONA! NAO DÁ PRA ENTENDER PORQUE
-  printf("");
+  wait(1, SC_NS);
 
   // escreve primeira parte
   request1.addr = addr;

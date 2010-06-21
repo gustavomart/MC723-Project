@@ -86,8 +86,8 @@ int sc_main(int ac, char *av[])
   router.R_port_fpu(fpu.target_export);
   router.R_port_transpose(transpose.target_export);
 
-  fft1d.R_port_mem(mem.target_fftport);
-  transpose.R_port_mem(mem.target_transposeport);
+  fft1d.R_port_mem(router.target_fftport1);
+  transpose.R_port_mem(router.target_fftport2);
 
   mips1_proc1.init(ac, (char**)param[0]);
   mips1_proc2.init(ac, (char**)param[1]);

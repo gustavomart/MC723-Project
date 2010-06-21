@@ -38,6 +38,8 @@ ac_tlm_router::ac_tlm_router( sc_module_name module_name ) :
   target_export2("iport2"),
   target_export3("iport3"),
   target_export4("iport4"),
+  target_fftport1("fftport1"),
+  target_fftport2("fftport2"),
   R_port_mem("R_port_mem", 5242880U),
   R_port_lock("R_port_lock", 32U),
   R_port_fft1d("R_port_fft1d", 1048576U),
@@ -49,6 +51,10 @@ ac_tlm_router::ac_tlm_router( sc_module_name module_name ) :
     target_export2( *this );
     target_export3( *this );
     target_export4( *this );
+
+    // Binds the fft ports to the router
+    target_fftport1( *this );
+    target_fftport2( *this );
 }
 
 /// Destructor

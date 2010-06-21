@@ -756,7 +756,6 @@ double TouchArray(double *x, double *scratch, double *u, double *upriv, long MyF
   return tot;
 }
 
-
 double CheckSum(double *x)
 {
   long i,j,k;

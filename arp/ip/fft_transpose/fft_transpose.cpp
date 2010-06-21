@@ -252,6 +252,8 @@ void fft_transpose::write_double( double* a, double d )
   uint32_t value[2];
   *((double*) value) = *((double *) &d);
 
+  wait(1, SC_NS);
+
   // escreve primeira parte
   request1.addr = addr;
   request1.type = WRITE;
