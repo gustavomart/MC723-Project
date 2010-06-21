@@ -133,7 +133,7 @@ void fft_transpose::write_double( double* a, double d )
   ac_tlm_req request1, request2;
   uint32_t addr = (uint32_t)a;
   uint32_t value[2];
-  *((double*) value) = *((uint32_t *) &d);
+  *((double*) value) = *((double *) &d);
 
   // escreve primeira parte
   request1.addr = addr;

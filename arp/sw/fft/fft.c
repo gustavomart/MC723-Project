@@ -75,7 +75,7 @@ lock_t lock_div = 0;
 lock_t lock_sin = 0;
 lock_t lock_cos = 0;
 
-volatile int P = 1;
+volatile int P = 4;
 
 void inline AcquireLocalLock(lock_t *lock)
 {
@@ -248,14 +248,14 @@ void ARP_Transpose(long n1, double *src, double *dest, long MyNum, long MyFirst,
 
 void ARP_FFT1DOnce(long MyNum, long direction, long M, long N, double *u, double *x)
 {
-  long *arp_mynum = (long*)FFT1D_BASE;
+  long *arp_mynum = (long*)(FFT1D_BASE);
   long *arp_direction = (long*)(FFT1D_BASE+4);
   long *arp_M = (long*)(FFT1D_BASE+8);
   long *arp_N = (long*)(FFT1D_BASE+12);
   double **vet_u = (double**)(FFT1D_BASE+16);
   double **vet_x = (double**)(FFT1D_BASE+20);
 
-  long *calcula_FFT1DOnce = (long*)(FFT1D_BASE+MyNum*4);
+  long *calcula_FFT1DOnce = (long*)(FFT1D_BASE+24);
 
   AcquireLocalLock(&lock_fft1d);
 
@@ -288,7 +288,7 @@ barrier_t fft_barrier2[5] = {0, 0, 0, 0, 0};
 #define NUM_CACHE_LINES        65536 
 #define LOG2_LINE_SIZE             4
 #define PI                    3.1416
-#define DEFAULT_M                  4
+#define DEFAULT_M                  10
 
 #include <sys/time.h>
 #include <unistd.h>
@@ -317,7 +317,7 @@ double *trans;          /* trans is used as scratch space         */
 double *umain;          /* umain is roots of unity for 1D FFTs    */
 double *umain2;         /* umain2 is entire roots of unity matrix */
 long test_result = 1;
-long doprint = 1;
+long doprint = 0;
 long dostats = 1;
 long transtime = 0;
 long transtime2 = 0;
@@ -381,11 +381,6 @@ int main(int argc, char *argv[])
     {
       Global = (struct GlobalMemory *) valloc(sizeof(struct GlobalMemory));;
       printf("Criou <Global>\n");
-    }
-    else
-    {
-      ReleaseLocalLock(&lock1);
-      exit(0);
     }
     Global->id++;
     printf("MyNum = %d\n", MyNum);
@@ -558,13 +553,9 @@ int main(int argc, char *argv[])
       exit(0);
   }
 
-  printf("Vai entrar no SlaveStart\n");
-
   /* fire off P processes */
   /* MC723 - Passa MyNum que indica o numero do processador */
   SlaveStart(MyNum);
-
-  printf("Saiu do SlaveStart\n");
 
   // fft - barreira para fim do algoritmo
   Barrier(&finish_barrier, &lock1);
@@ -679,8 +670,6 @@ void SlaveStart(long MyNum)
   long MyFirst; 
   long MyLast;
 
-  printf("Entrou no slavestart\n");
-
   upriv = (double *) malloc(2*(rootN-1)*sizeof(double));  
   if (upriv == NULL) {
     fprintf(stderr,"Proc %ld could not malloc memory for upriv\n",MyNum);
@@ -742,7 +731,7 @@ void SlaveStart(long MyNum)
     Global->finishtime = finish;
     Global->initdonetime = initdone;
   }
-  printf("Caiu \n");
+
 }
 
 /* Usar FPU */

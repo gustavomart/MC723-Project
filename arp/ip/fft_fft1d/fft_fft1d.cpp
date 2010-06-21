@@ -52,9 +52,10 @@ fft_fft1d::~fft_fft1d() { }
 */
 ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
 {
-  switch(a) {
+  switch(*((uint32_t *)&a)) {
     case 0:
-      *((uint32_t *) &MyNum) = *((uint32_t *) &d);
+      *((uint32_t *) &_MyNum) = *((uint32_t *) &d);
+      break;
     case 4:
       *((uint32_t *) &_direction) = *((uint32_t *) &d);
       break;
@@ -65,12 +66,16 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
       *((uint32_t *) &_N) = *((uint32_t *) &d);
       break;
     case 16:
-      *((uint32_t *) &vet_u[MyNum]) = *((uint32_t *) &d);
+      *((uint32_t *) &_u) = *((uint32_t *) &d);
       break;
     case 20:
-      *((uint32_t *) &vet_x[MyNum]) = *((uint32_t *) &d);
+      *((uint32_t *) &_x) = *((uint32_t *) &d);
       break;
+    default:
+      return ERROR;
   }
+
+  return SUCCESS;
 }
 
 /** Read Result
@@ -80,8 +85,8 @@ ac_tlm_rsp_status fft_fft1d::write( const uint32_t &a , const uint32_t &d )
 */
 ac_tlm_rsp_status fft_fft1d::read( const uint32_t &a , uint32_t &d )
 {
-  if (a == 24)
-    FFT1DOnce(_direction, _M, _N, _u, _x);
+  if((*((const uint32_t *) &a) == 24)) 
+    FFT1DOnce((long)_direction, (long)_M, (long)_N, (double*)_u, (double*)_x);
 
   return SUCCESS;
 }
@@ -112,18 +117,21 @@ void fft_fft1d::write_double( double* a, double d )
   ac_tlm_req request1, request2;
   uint32_t addr = (uint32_t)a;
   uint32_t value[2];
-  *((double*) value) = *((uint32_t *) &d);
+  *((double*) value) = *((double *) &d);
+
+  // SEM ESSA LINHA NAO FUNCIONA! NAO DÁ PRA ENTENDER PORQUE
+  printf("");
 
   // escreve primeira parte
   request1.addr = addr;
   request1.type = WRITE;
-  *((uint32_t *) &request1.data) = *((uint32_t *) &value[1]);
+  request1.data = value[1];
   R_port_mem->transport( request1 );
 
   // escreve segunda parte
   request2.addr = addr+4;
   request2.type = WRITE;
-  *((uint32_t *) &request2.data) = *((uint32_t *) &value[0]);
+  request2.data = value[0];
   R_port_mem->transport( request2 );
 }
 
@@ -153,13 +161,17 @@ void fft_fft1d::Reverse(long N, long M, double *x)
 
       a = read_double(x+2*j);
       b = read_double(x+2*k);
+      //printf("antes = %lf %p %lf %p\n",  read_double(x+2*j), x+2*j, read_double(x+2*k), x+2*k);
       write_double(x+2*j, b);
       write_double(x+2*k, a);   
+      //printf("depois = %lf %p %lf %p\n",  read_double(x+2*j), x+2*j, read_double(x+2*k), x+2*k);
 
-      a = read_double(x+2*j+1);
-      b = read_double(x+2*k+1);
-      write_double(x+2*j+1, b);
-      write_double(x+2*k+1, a);
+      a = read_double(x+(2*j+1));
+      b = read_double(x+(2*k+1));
+      write_double(x+(2*j+1), b);
+      write_double(x+(2*k+1), a);
+
+
     }
   }
 }

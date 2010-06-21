@@ -110,12 +110,12 @@ public:
 
 private:
   // parameters of the peripheral
-  uint32_t MyNum;
-  uint32_t zdirection[4];
-  uint32_t zM[4];
-  uint32_t zN[4];
-  double* vet_x[4];
-  double* vet_u[4];
+  uint32_t _MyNum;
+  uint32_t _direction;
+  uint32_t _M;
+  uint32_t _N;
+  double* _u;
+  double* _x;
 
   long BitReverse(long M, long k);
   void Reverse(long N, long M, double *x);
